@@ -1,0 +1,203 @@
+﻿using System.Collections.Generic;
+using Unity.Entities;
+using UnityEngine;
+
+namespace NexusFramework.GAS.ECS
+{
+    public sealed class CatchAreaBox3D : TargetCatcherBase<XParamCatchAreaBox3D>  
+    {  
+        private static readonly Collider[] Colliders = new Collider[64];  
+
+        protected override void CatchTargetsNonAlloc(Entity mainTarget, List<Entity> results)  
+        {  
+            int count;  
+            if (Parameter.isWorldSpace)  
+            {  
+                count = Physics.OverlapBoxNonAlloc(  
+                    Parameter.offset,  
+                    Parameter.size * 0.5f,  
+                    Colliders,  
+                    Quaternion.Euler(Parameter.rotation),  
+                    Parameter.layer.value);  
+            }  
+            else  
+            {  
+                // TODO: [NF.GAS] Architecture injection needed - Entity to Transform resolution
+                var go = EntityGameObjectBindings.GetGameObject(mainTarget);
+                if (go == null) return;
+                var mainTransform = go.transform;  
+                count = Physics.OverlapBoxNonAlloc(  
+                    mainTransform.TransformPoint(Parameter.offset),  
+                    Parameter.size * 0.5f,  
+                    Colliders,  
+                    Quaternion.Euler(mainTransform.TransformDirection(Parameter.rotation)),  
+                    Parameter.layer.value);  
+            }  
+
+            for (var i = 0; i < count; ++i)  
+            {  
+                var entity = EntityGameObjectBindings.GetEntity(Colliders[i].gameObject);
+                if (entity != Entity.Null) results.Add(entity);  
+            }  
+        }
+
+        public override void OnEditorPreview(GameObject obj)
+        {
+#if UNITY_EDITOR
+            if (Parameter == null) return;
+
+            Vector3 center;
+            Quaternion rotation;
+
+            if (Parameter.isWorldSpace)
+            {
+                center = Parameter.offset;
+                rotation = Quaternion.Euler(Parameter.rotation);
+            }
+            else
+            {
+                if (obj == null) return;
+                var t = obj.transform;
+                center = t.TransformPoint(Parameter.offset);
+                rotation = Quaternion.Euler(t.TransformDirection(Parameter.rotation));
+            }
+
+            Debug.DrawLine(center, center + Vector3.one * 0.1f, Color.green, 10f);
+#endif
+        }
+    }
+
+    public class XParamCatchAreaBox3D : XParam
+    {
+        [BeanField(nameof(SetIsWorldSpace), Order = 1)]
+        public bool isWorldSpace;
+
+        [BeanField(nameof(SetOffset), Order = 2)]
+        public Vector3 offset;
+
+        [BeanField(nameof(SetSize), Order = 3)]
+        public Vector3 size;
+
+        [BeanField(nameof(SetRotation), Order = 4)]
+        public Vector3 rotation;
+
+        [BeanField(nameof(SetLayer), LubanType = "int", Order = 5)]
+        public LayerMask layer;
+        
+        
+        public void SetIsWorldSpace(bool isWorld)
+        {
+            isWorldSpace = isWorld;
+        }
+        
+        public void SetOffset(Vector3 offset)
+        {
+            this.offset = offset;
+        }
+        
+        public void SetSize(Vector3 size)
+        {
+            this.size = size;
+        }
+        
+        public void SetRotation(Vector3 rotation)
+        {
+            this.rotation = rotation;
+        }
+        
+        public void SetLayer(int layer)
+        {
+            this.layer.value = layer;
+        }
+#if UNITY_EDITOR
+        public void DecodeExcelData(List<object> paramData)
+        {
+            // isWorldSpace
+            if (paramData.Count > 0)
+            {
+                var strData = paramData[0] as string;
+                if (string.IsNullOrEmpty(strData)) return;
+                
+                if (!bool.TryParse(strData, out isWorldSpace))
+                    isWorldSpace = false;
+            }
+            
+            // offset 
+            if (paramData.Count > 1)
+            {
+                var strData = paramData[1] as string;
+                if (string.IsNullOrEmpty(strData)) return;
+                
+                var data = strData.Split(',');
+                if (data.Length == 3)
+                {
+                    if (float.TryParse(data[0], out var x) &&
+                        float.TryParse(data[1], out var y) &&
+                        float.TryParse(data[2], out var z))
+                    {
+                        offset = new Vector3(x, y, z);
+                    }
+                }
+            }
+            
+            // size
+            if (paramData.Count > 2)
+            {
+                var strData = paramData[2] as string;
+                if (string.IsNullOrEmpty(strData)) return;
+                
+                var data = strData.Split(',');
+                if (data.Length == 3)
+                {
+                    if (float.TryParse(data[0], out var x) &&
+                        float.TryParse(data[1], out var y) &&
+                        float.TryParse(data[2], out var z))
+                    {
+                        size = new Vector3(x, y, z);
+                    }
+                }
+            }
+            
+            // rotation
+            if (paramData.Count > 3)
+            {
+                var strData = paramData[3] as string;
+                if (string.IsNullOrEmpty(strData)) return;
+
+                var data = strData.Split(',');
+                if (data.Length == 3)
+                {
+                    if (float.TryParse(data[0], out var x) &&
+                        float.TryParse(data[1], out var y) &&
+                        float.TryParse(data[2], out var z))
+                    {
+                        rotation = new Vector3(x, y, z);
+                    }
+                }
+            }
+
+            // layer
+            if (paramData.Count > 4)
+            {
+                var strData = paramData[4] as string;
+                if (string.IsNullOrEmpty(strData)) return;
+
+                if (int.TryParse(strData, out var layerNumber)) layer = layerNumber;
+            }
+        }
+
+        public List<object> EncodeExcelData()
+        {
+            var data = new List<object>
+            {
+                isWorldSpace.ToString(),
+                $"{offset.x},{offset.y},{offset.z}",
+                $"{size.x},{size.y},{size.z}",
+                $"{rotation.x},{rotation.y},{rotation.z}",
+                layer.value.ToString()
+            };
+            return data;
+        }
+#endif
+    }
+}

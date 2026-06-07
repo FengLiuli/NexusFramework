@@ -1,0 +1,142 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using NexusFramework.GAS.Config;
+
+namespace NexusFramework.GAS.ECS
+{
+    public class XParamCue : XParam
+    {
+        [BeanField(nameof(SetRequiredTags), Order = 1)]
+        public List<int> RequiredTags;
+
+        [BeanField(nameof(SetImmunityTags), Order = 2)]
+        public List<int> ImmunityTags;
+
+        [BeanPolymorphicField(
+            beanFieldName: "CueLogic",
+            lubanPolymorphicType: nameof(GameplayCueBase),
+            typeSetter: nameof(SetCueType),
+            paramSetter: nameof(SetParam),
+            ParamTypeResolver = "CueHelper.GetCueLogicParamType",
+            HelperCategory = "Cue",
+            Order = 3)]
+        public string CueType { get; private set; }
+
+        public XParam Param { get; set; }
+
+        public void SetCueType(string cueType)
+        {
+            CueType = cueType;
+        }
+
+        public void SetParam(XParam param)
+        {
+            Param = param;
+        }
+
+        public void SetRequiredTags(int[] requiredTags)
+        {
+            RequiredTags = requiredTags != null ? requiredTags.ToList() : new List<int>();
+        }
+
+        public void SetImmunityTags(int[] immunityTags)
+        {
+            ImmunityTags = immunityTags != null ? immunityTags.ToList() : new List<int>();
+        }
+
+        public XParamCue()
+        {
+            CueType = "";
+            Param = null;
+            RequiredTags = new List<int>();
+            ImmunityTags = new List<int>();
+        }
+
+        public XParamCue(string cueType, XParam param = null, int[] requiredTags = null,
+            int[] immunityTags = null)
+        {
+            CueType = cueType;
+            Param = param;
+            RequiredTags = requiredTags != null ? requiredTags.ToList() : new List<int>();
+            ImmunityTags = immunityTags != null ? immunityTags.ToList() : new List<int>();
+        }
+
+        public GameplayCueConfig GetCueConfig()
+        {
+            var cueType = CueHelper.GetCueType(CueType);
+            return new GameplayCueConfig(cueType, Param,
+                RequiredTags.ToArray(), Array.Empty<int>(), Array.Empty<int>(),
+                Array.Empty<int>(), Array.Empty<int>(), ImmunityTags.ToArray());
+        }
+
+
+
+#if UNITY_EDITOR
+        public void DecodeExcelData(List<object> paramData)
+        {
+            RequiredTags = new List<int>();
+            if (paramData.Count > 0)
+            {
+                var strTags = paramData[0].ToString();
+                if (strTags != "0")
+                {
+                    var tags = strTags.Split(';');
+                    foreach (var tag in tags)
+                        if (int.TryParse(tag, out var tagInt))
+                            RequiredTags.Add(tagInt);
+                }
+            }
+
+            ImmunityTags = new List<int>();
+            if (paramData.Count > 1)
+            {
+                var strTags = paramData[1].ToString();
+                if (strTags != "0")
+                {
+                    var tags = strTags.Split(';');
+                    foreach (var tag in tags)
+                        if (int.TryParse(tag, out var tagInt))
+                            ImmunityTags.Add(tagInt);
+                }
+            }
+
+            if (paramData.Count > 2)
+                CueType = paramData[2].ToString();
+
+            if (paramData.Count > 3)
+            {
+                List<object> paramDataForCue = new List<object>();
+                for (int i = 3; i < paramData.Count; i++)
+                {
+                    paramDataForCue.Add(paramData[i]);
+                }
+
+                var cueParamType = CueHelper.GetCueLogicParamType(CueType);
+                if (cueParamType != null)
+                {
+                    Param = (XParam)Activator.CreateInstance(cueParamType);
+                    Param.DecodeExcelData(paramDataForCue);
+                }
+            }
+        }
+
+        public List<object> EncodeExcelData()
+        {
+            var result = new List<object>();
+            var strRequiredTags = RequiredTags.Count == 0 ? "0" : string.Join(";", RequiredTags);
+            result.Add(strRequiredTags);
+
+            var strImmunityTags = ImmunityTags.Count == 0 ? "0" : string.Join(";", ImmunityTags);
+            result.Add(strImmunityTags);
+
+            result.Add(CueType);
+
+            if (Param != null)
+                result.AddRange(Param.EncodeExcelData());
+
+            return result;
+        }
+#endif
+    }
+}

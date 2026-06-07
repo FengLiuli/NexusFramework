@@ -1,0 +1,4 @@
+repository "NexusFramework@tj_fengliuli@cloud.cn"
+  path "/"
+    br "/main"
+    co "/main"

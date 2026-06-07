@@ -1,0 +1,20 @@
+{
+    "name": "NexusFramework.GAS",
+    "rootNamespace": "NexusFramework.GAS",
+    "references": [
+        "GUID:0de6792a94c3d1943a2a75abf64597f1",
+        "Unity.Entities",
+        "Unity.Mathematics",
+        "Unity.Collections",
+        "Unity.Burst"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,21 @@
+{
+    "name": "NexusFramework.GAS.Editor",
+    "rootNamespace": "NexusFramework.GAS.Editor",
+    "references": [
+        "NexusFramework",
+        "NexusFramework.GAS",
+        "Unity.Entities",
+        "Unity.Collections"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
