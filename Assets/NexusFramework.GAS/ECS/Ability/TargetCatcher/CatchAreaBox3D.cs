@@ -8,37 +8,44 @@ namespace NexusFramework.GAS.ECS
     {  
         private static readonly Collider[] Colliders = new Collider[64];  
 
-        protected override void CatchTargetsNonAlloc(Entity mainTarget, List<Entity> results)  
-        {  
-            int count;  
-            if (Parameter.isWorldSpace)  
-            {  
-                count = Physics.OverlapBoxNonAlloc(  
-                    Parameter.offset,  
-                    Parameter.size * 0.5f,  
-                    Colliders,  
-                    Quaternion.Euler(Parameter.rotation),  
-                    Parameter.layer.value);  
-            }  
-            else  
-            {  
-                // TODO: [NF.GAS] Architecture injection needed - Entity to Transform resolution
-                var go = EntityGameObjectBindings.GetGameObject(mainTarget);
+        protected override void CatchTargetsNonAlloc(Entity mainTarget, List<Entity> results)
+        {
+            int count;
+            if (Parameter.isWorldSpace)
+            {
+                count = Physics.OverlapBoxNonAlloc(
+                    Parameter.offset,
+                    Parameter.size * 0.5f,
+                    Colliders,
+                    Quaternion.Euler(Parameter.rotation),
+                    Parameter.layer.value);
+            }
+            else
+            {
+                var go = _entityResolver?.GetGameObject(mainTarget);
                 if (go == null) return;
-                var mainTransform = go.transform;  
-                count = Physics.OverlapBoxNonAlloc(  
-                    mainTransform.TransformPoint(Parameter.offset),  
-                    Parameter.size * 0.5f,  
-                    Colliders,  
-                    Quaternion.Euler(mainTransform.TransformDirection(Parameter.rotation)),  
-                    Parameter.layer.value);  
-            }  
+                var mainTransform = go.transform;
+                count = Physics.OverlapBoxNonAlloc(
+                    mainTransform.TransformPoint(Parameter.offset),
+                    Parameter.size * 0.5f,
+                    Colliders,
+                    Quaternion.Euler(mainTransform.TransformDirection(Parameter.rotation)),
+                    Parameter.layer.value);
+            }
 
-            for (var i = 0; i < count; ++i)  
-            {  
-                var entity = EntityGameObjectBindings.GetEntity(Colliders[i].gameObject);
-                if (entity != Entity.Null) results.Add(entity);  
-            }  
+            for (var i = 0; i < count; ++i)
+            {
+                // 反向查找：优先走注入的 resolver，其次用 GetComponentInParent<GASEntityRef>
+                Entity entity;
+                if (_entityResolver != null)
+                    entity = _entityResolver.GetEntity(Colliders[i].gameObject);
+                else
+                {
+                    var gasRef = Colliders[i].GetComponentInParent<GASEntityRef>();
+                    entity = gasRef != null ? gasRef.Entity : Entity.Null;
+                }
+                if (entity != Entity.Null) results.Add(entity);
+            }
         }
 
         public override void OnEditorPreview(GameObject obj)

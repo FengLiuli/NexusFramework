@@ -17,12 +17,15 @@ namespace NexusFramework.GAS.ECS
             CatcherType2ParamTypeMap[sType] = catcherParamType.Name;
         }
 
-        public static TargetCatcherBase TryCreateTargetCatcher(string catcherType)
+        public static TargetCatcherBase TryCreateTargetCatcher(string catcherType, IGASEntityResolver resolver = null)
         {
             if (CatcherTypeMap.TryGetValue(catcherType, out var type))
                 try
                 {
-                    return Activator.CreateInstance(type) as TargetCatcherBase;
+                    var catcher = Activator.CreateInstance(type) as TargetCatcherBase;
+                    if (catcher != null && resolver != null)
+                        catcher.SetEntityResolver(resolver);
+                    return catcher;
                 }
                 catch (MissingMethodException e)
                 {

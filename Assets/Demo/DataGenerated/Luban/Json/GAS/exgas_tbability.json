@@ -1,0 +1,110 @@
+[
+  {
+    "ID": 1001,
+    "Name": "定点移动",
+    "Desc": "移动到指定位置",
+    "Cost": 0,
+    "CdEffect": 0,
+    "Cd": 0,
+    "AssetTags": [],
+    "ActivationOwnedTags": [],
+    "AbilityLogic": {
+      "$type": "ALMoveTo",
+      "Param": {
+        "Value": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        }
+      }
+    }
+  },
+  {
+    "ID": 1002,
+    "Name": "按键移动",
+    "Desc": "",
+    "Cost": 0,
+    "CdEffect": 0,
+    "Cd": 0,
+    "AssetTags": [],
+    "ActivationOwnedTags": [],
+    "AbilityLogic": {
+      "$type": "ALUnitMove",
+      "Param": {}
+    }
+  },
+  {
+    "ID": 1003,
+    "Name": "拖拽旋转",
+    "Desc": "",
+    "Cost": 0,
+    "CdEffect": 0,
+    "Cd": 0,
+    "AssetTags": [],
+    "ActivationOwnedTags": [],
+    "AbilityLogic": {
+      "$type": "ALUnitRotateByDrag",
+      "Param": {}
+    }
+  },
+  {
+    "ID": 2001,
+    "Name": "开火",
+    "Desc": "",
+    "Cost": 0,
+    "CdEffect": 0,
+    "Cd": 0,
+    "AssetTags": [],
+    "ActivationOwnedTags": [],
+    "AbilityLogic": {
+      "$type": "ALFire",
+      "Param": {
+        "Value": "测试飞弹"
+      }
+    }
+  },
+  {
+    "ID": 2002,
+    "Name": "自动开火",
+    "Desc": "",
+    "Cost": 0,
+    "CdEffect": 0,
+    "Cd": 0,
+    "AssetTags": [],
+    "ActivationOwnedTags": [],
+    "AbilityLogic": {
+      "$type": "ALWeaponAutoFire",
+      "Param": {
+        "Value": "测试飞弹"
+      }
+    }
+  },
+  {
+    "ID": 2003,
+    "Name": "手动瞄准",
+    "Desc": "",
+    "Cost": 0,
+    "CdEffect": 0,
+    "Cd": 0,
+    "AssetTags": [],
+    "ActivationOwnedTags": [],
+    "AbilityLogic": {
+      "$type": "ALWeaponCursorAim",
+      "Param": {}
+    }
+  },
+  {
+    "ID": 2004,
+    "Name": "锁定目标",
+    "Desc": "",
+    "Cost": 0,
+    "CdEffect": 0,
+    "Cd": 0,
+    "AssetTags": [],
+    "ActivationOwnedTags": [],
+    "AbilityLogic": {
+      "$type": "ALWeaponLockTarget",
+      "Param": {}
+    }
+  }
+]

@@ -10,8 +10,7 @@ namespace NexusFramework.GAS.ECS
         public override void OnAdd(float time)
         {
             base.OnAdd(time);
-            // TODO: [NF.GAS] Architecture injection needed - Entity to GameObject resolution
-            var go = EntityGameObjectBindings.GetGameObject(_targetAscEntity);
+            var go = GetTargetAscGameObject();
             if (go != null)
             {
                 var node = go.transform.Find(Parameter.AnimatorNodePath);

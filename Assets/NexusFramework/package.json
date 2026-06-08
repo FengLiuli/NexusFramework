@@ -1,0 +1,10 @@
+{
+  "name": "com.nexusframework.core",
+  "version": "1.0.0",
+  "displayName": "NexusFramework Core",
+  "description": "模块化 MVCS+CQRS 游戏框架核心",
+  "unity": "2022.3",
+  "unityRelease": "0f1",
+  "keywords": ["framework", "architecture", "mvcs", "cqrs"],
+  "dependencies": {}
+}

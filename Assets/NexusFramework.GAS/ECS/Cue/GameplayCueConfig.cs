@@ -33,9 +33,9 @@ namespace NexusFramework.GAS.ECS
             ImmunityNoneTags = immunityNoneTags ?? Array.Empty<int>();
         }
 
-        public GameplayCueBase CreateCue()
+        public GameplayCueBase CreateCue(IGASEntityResolver resolver = null)
         {
-            return CueHelper.TryCreateCue(CueType, Param);
+            return CueHelper.TryCreateCue(CueType, Param, resolver);
         }
     }
 }

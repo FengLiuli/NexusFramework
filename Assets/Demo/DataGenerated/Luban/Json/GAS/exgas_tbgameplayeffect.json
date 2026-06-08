@@ -1,0 +1,31 @@
+[
+  {
+    "ID": 1001,
+    "Name": "奔跑耐力消耗",
+    "Desc": "耐力减少1点/5帧",
+    "AssetTags": [],
+    "GrantedTags": [
+      4001003
+    ],
+    "Duration": {
+      "TimeUnit": 0,
+      "Time": -1,
+      "ResetStartTimeWhenActivated": false
+    },
+    "Period": {
+      "Time": 5,
+      "Effects": [
+        9001
+      ],
+      "FirstTrigger": true
+    },
+    "Modifiers": [],
+    "CueOnApply": [],
+    "CueOnTick": [],
+    "CueOnAdd": [],
+    "CueOnRemove": [],
+    "CueOnActivate": [],
+    "CueOnDeactivate": [],
+    "GrantedAbility": []
+  }
+]

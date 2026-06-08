@@ -7,18 +7,23 @@
 
 ## 一、未实现功能 (TODO)
 
-### 1.1 Entity ↔ GameObject 桥接未注入
+### 1.1 Entity ↔ GameObject 桥接未注入 ✅ 已解决 (2026-06-08)
 
-文件位于 `Assets/NexusFramework.GAS/ECS/`：
+**解决方案**：
+- 将 `EntityGameObjectBindings` 从 static class 重构为 Architecture 级 Model 实现
+- 新建 `IGASEntityResolver` 接口（`ECS/Bridge/IGASEntityResolver.cs`），定义 Entity↔GameObject 双向查询契约
+- `GASEntityMapModel` 实现该接口，在已有 CarrierId↔Entity 映射基础上新增 Entity↔GameObject 映射
+- `GameplayCueBase` 和 `TargetCatcherBase` 通过 `SetEntityResolver()` 注入，Cue 子类使用 `GetTargetAscGameObject()` 辅助方法
+- 写入端收敛到 `GASArchitecture.BindGameObjectForCarrier(carrierId, go)` 和 `CreateGASCarrier(typeName, go)`
+- 新建 `GASEntityRef` MonoBehaviour 用于 Collider→Entity 反向查找（`GetComponentInParent<GASEntityRef>()`）
+- 原 `EntityGameObjectBindings` 标记 `[Obsolete]`，内部委托给 `GASEntityMapModel`，迁移窗口期后删除
 
-| 文件 | 行号 | 问题 |
-|---|---|---|
-| `Cue/Common/CuePlaySound.cs` | 26 | Entity → GameObject 解析未接入架构注入 |
-| `Cue/Common/CuePlayAnimator.cs` | 13 | 同上 |
-| `Cue/Common/CueMountPrefab.cs` | 40 | 同上 |
-| `Ability/TargetCatcher/CatchAreaBox3D.cs` | 25 | Entity → Transform 解析未接入架构注入 |
+已修改文件：
+| `ECS/Cue/Common/CuePlaySound.cs` | ✅ 改用 `GetTargetAscGameObject()` |
+| `ECS/Cue/Common/CuePlayAnimator.cs` | ✅ 同上 |
+| `ECS/Cue/Common/CueMountPrefab.cs` | ✅ 同上 |
+| `ECS/Ability/TargetCatcher/CatchAreaBox3D.cs` | ✅ 改用 `_entityResolver` + `GASEntityRef` |
 
-所有桥接方法均暂存在 `GASInternalBridge` 中，需通过 Architecture 注入正式实现。
 
 ### 1.2 ConfigLoader 功能不完整
 

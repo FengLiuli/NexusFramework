@@ -7,7 +7,7 @@ namespace NexusFramework.GAS.ECS
     {
         public GameplayCueConfig[] cues;
 
-        public NativeArray<Entity> CreateCueEntityArray(Entity ge)
+        public NativeArray<Entity> CreateCueEntityArray(Entity ge, IGASEntityResolver resolver = null)
         {
             bool HasTags(int[] tags) => tags != null && tags.Length > 0;
 
@@ -28,7 +28,7 @@ namespace NexusFramework.GAS.ECS
 
                 _entityManager.AddComponent<MCCue>(entities[i]);
                 var instantCue = CueHelper.InitInstantCueFromEffect(
-                    new MCCue(c.CreateCue()), entities[i], ge);
+                    new MCCue(c.CreateCue(resolver)), entities[i], ge);
                 _entityManager.SetComponentData(entities[i], instantCue);
 
                 if (HasTags(c.ImmunityAllTags) || HasTags(c.ImmunityAnyTags) || HasTags(c.ImmunityNoneTags))

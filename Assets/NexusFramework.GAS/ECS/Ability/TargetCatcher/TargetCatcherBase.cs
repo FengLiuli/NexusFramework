@@ -5,13 +5,20 @@ using UnityEngine;
 
 namespace NexusFramework.GAS.ECS
 {
-    public abstract class TargetCatcherBase  
-    {  
-        public Entity Owner;  
+    public abstract class TargetCatcherBase
+    {
+        public Entity Owner;
+        protected IGASEntityResolver _entityResolver;
 
-        public virtual void Init(Entity owner)  
-        {  
-            Owner = owner;  
+        public virtual void Init(Entity owner)
+        {
+            Owner = owner;
+        }
+
+        /// <summary>注入 Entity-GameObject 解析器，应在 Init/InitParameters 之前调用</summary>
+        public void SetEntityResolver(IGASEntityResolver resolver)
+        {
+            _entityResolver = resolver;
         }  
 
         [Obsolete("请使用CatchTargetsNonAlloc方法来避免产生垃圾收集（GC）。")]  

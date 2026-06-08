@@ -73,12 +73,13 @@ namespace NexusFramework.GAS.ECS
             return cueParamEditor;
         }
 
-        public static GameplayCueBase TryCreateCue(Type type, XParam param)
+        public static GameplayCueBase TryCreateCue(Type type, XParam param, IGASEntityResolver resolver = null)
         {
             try
             {
                 if (Activator.CreateInstance(type) is GameplayCueBase cue)
                 {
+                    if (resolver != null) cue.SetEntityResolver(resolver);
                     cue.InitParameters(param);
                     return cue;
                 }
@@ -90,10 +91,10 @@ namespace NexusFramework.GAS.ECS
             return null;
         }
 
-        public static GameplayCueBase TryCreateCue(string cueType, XParam param)
+        public static GameplayCueBase TryCreateCue(string cueType, XParam param, IGASEntityResolver resolver = null)
         {
             if (CueTypeMap.TryGetValue(cueType, out var type))
-                return TryCreateCue(type, param);
+                return TryCreateCue(type, param, resolver);
 #if UNITY_EDITOR
             Debug.LogError($"[NF.GAS] 创建Cue失败: Can't find Cue for cueType [{cueType}].");
 #endif

@@ -10,6 +10,7 @@ namespace NexusFramework.GAS.ECS
         protected CueSourceType _sourceType;
         protected Entity _targetAscEntity;
         protected EntityManager EntityManager;
+        protected IGASEntityResolver _entityResolver;
 
         protected GameplayCueBase(EntityManager entityManager)
         {
@@ -19,7 +20,24 @@ namespace NexusFramework.GAS.ECS
         protected GameplayCueBase()
         {
         }
-        
+
+        /// <summary>注入 Entity-GameObject 解析器，应在 InitParameters 之前调用</summary>
+        public void SetEntityResolver(IGASEntityResolver resolver)
+        {
+            _entityResolver = resolver;
+        }
+
+        /// <summary>
+        /// 获取 _targetAscEntity 对应的 GameObject。
+        /// 封装了 null 检查 + 过期检测，子类直接调用此方法即可。
+        /// </summary>
+        protected GameObject GetTargetAscGameObject()
+        {
+            if (_entityResolver == null) return null;
+            if (_targetAscEntity == Entity.Null) return null;
+            return _entityResolver.GetGameObject(_targetAscEntity);
+        }
+
         public abstract void InitParameters(XParam xParam);
 
         public virtual void Reset()

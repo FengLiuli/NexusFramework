@@ -37,8 +37,7 @@ namespace NexusFramework.GAS.ECS
         {
             base.OnAdd(time);
 
-            // TODO: [NF.GAS] Architecture injection needed - Entity to GameObject resolution
-            var hostGo = EntityGameObjectBindings.GetGameObject(_targetAscEntity);
+            var hostGo = GetTargetAscGameObject();
             if (hostGo == null)
             {
 #if UNITY_EDITOR

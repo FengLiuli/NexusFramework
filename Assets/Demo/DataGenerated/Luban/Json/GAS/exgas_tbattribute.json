@@ -1,0 +1,87 @@
+[
+  {
+    "ID": 1,
+    "Name": "Footprint",
+    "Desc": "单位占用的战场宽度"
+  },
+  {
+    "ID": 2,
+    "Name": "HitPoint",
+    "Desc": "该单位的结构值（血量）"
+  },
+  {
+    "ID": 3,
+    "Name": "ArmorPoint",
+    "Desc": "该单位的基础装甲值"
+  },
+  {
+    "ID": 4,
+    "Name": "MaxPressure",
+    "Desc": "该单位最大锅炉压力承载量"
+  },
+  {
+    "ID": 5,
+    "Name": "PressureRisePerSec",
+    "Desc": "该单位的炉压每秒增加量"
+  },
+  {
+    "ID": 6,
+    "Name": "PressureDropPerMeter",
+    "Desc": "该单位移动时的炉压每米减小量"
+  },
+  {
+    "ID": 7,
+    "Name": "MaxTurnRate  ",
+    "Desc": "单位的最大转向速度，度每秒（0-360）"
+  },
+  {
+    "ID": 8,
+    "Name": "TurnAcceleration",
+    "Desc": "单位的转向加速度，度每秒平方（0-360）"
+  },
+  {
+    "ID": 9,
+    "Name": "MaxSpeed",
+    "Desc": "单位的最大速度"
+  },
+  {
+    "ID": 10,
+    "Name": "MaxAccel",
+    "Desc": "单位的最大加速度"
+  },
+  {
+    "ID": 11,
+    "Name": "Mass",
+    "Desc": "质量，确定单位的“重量”。用于计算与其他单位碰撞造成的损害，以及质量较高的单位在碰撞中会对较小的单位造成更大的伤害，并且受到的伤害也更少，同时将较小的单位“推开”。同时在寻路的本地回避里确定谁优先回避（谁轻谁回避的多）"
+  },
+  {
+    "ID": 12,
+    "Name": "MinCrew",
+    "Desc": "确定维持该单位运转的最小人员数量。"
+  },
+  {
+    "ID": 13,
+    "Name": "CargoCapacity",
+    "Desc": "确定该单位可以承载的货物数量。包括人员、货物和燃料。"
+  },
+  {
+    "ID": 14,
+    "Name": "FuelPerKm",
+    "Desc": "该单位在大地图中旅行时每公里消耗的燃料量。"
+  },
+  {
+    "ID": 15,
+    "Name": "CRS",
+    "Desc": "​Combat Readiness Stockpiles。最大战备库存值"
+  },
+  {
+    "ID": 16,
+    "Name": "CRSLoss",
+    "Desc": "在战斗中单位每秒损失多少战备库存值"
+  },
+  {
+    "ID": 17,
+    "Name": "Supplies",
+    "Desc": "单位每月消耗多少补给品作为维护"
+  }
+]

@@ -1,0 +1,151 @@
+[
+  {
+    "ID": 2,
+    "Name": "Unit",
+    "Desc": "战斗单位通用属性集",
+    "Attribute": [
+      {
+        "ID": 1,
+        "InitValue": 100,
+        "MinValue": 0,
+        "MaxValue": 999,
+        "UseMinValue": true,
+        "UseMaxValue": true
+      },
+      {
+        "ID": 2,
+        "InitValue": 100,
+        "MinValue": 0,
+        "MaxValue": 999,
+        "UseMinValue": true,
+        "UseMaxValue": true
+      },
+      {
+        "ID": 3,
+        "InitValue": 10,
+        "MinValue": 0,
+        "MaxValue": 999,
+        "UseMinValue": true,
+        "UseMaxValue": true
+      },
+      {
+        "ID": 4,
+        "InitValue": 10,
+        "MinValue": 0,
+        "MaxValue": 999,
+        "UseMinValue": true,
+        "UseMaxValue": true
+      },
+      {
+        "ID": 5,
+        "InitValue": 10,
+        "MinValue": 0,
+        "MaxValue": 999,
+        "UseMinValue": true,
+        "UseMaxValue": true
+      },
+      {
+        "ID": 6,
+        "InitValue": 100,
+        "MinValue": 0,
+        "MaxValue": 999,
+        "UseMinValue": true,
+        "UseMaxValue": true
+      },
+      {
+        "ID": 7,
+        "InitValue": 100,
+        "MinValue": 0,
+        "MaxValue": 999,
+        "UseMinValue": true,
+        "UseMaxValue": true
+      },
+      {
+        "ID": 8,
+        "InitValue": 100,
+        "MinValue": 0,
+        "MaxValue": 999,
+        "UseMinValue": true,
+        "UseMaxValue": true
+      },
+      {
+        "ID": 9,
+        "InitValue": 5,
+        "MinValue": 0,
+        "MaxValue": 9999,
+        "UseMinValue": true,
+        "UseMaxValue": false
+      },
+      {
+        "ID": 10,
+        "InitValue": 5,
+        "MinValue": 0,
+        "MaxValue": 9999,
+        "UseMinValue": true,
+        "UseMaxValue": false
+      },
+      {
+        "ID": 11,
+        "InitValue": 100,
+        "MinValue": 0,
+        "MaxValue": 9999,
+        "UseMinValue": true,
+        "UseMaxValue": false
+      },
+      {
+        "ID": 12,
+        "InitValue": 100,
+        "MinValue": 0,
+        "MaxValue": 9999,
+        "UseMinValue": true,
+        "UseMaxValue": false
+      },
+      {
+        "ID": 13,
+        "InitValue": 100,
+        "MinValue": 0,
+        "MaxValue": 9999,
+        "UseMinValue": true,
+        "UseMaxValue": false
+      },
+      {
+        "ID": 14,
+        "InitValue": 100,
+        "MinValue": 0,
+        "MaxValue": 9999,
+        "UseMinValue": true,
+        "UseMaxValue": false
+      },
+      {
+        "ID": 15,
+        "InitValue": 100,
+        "MinValue": 0,
+        "MaxValue": 9999,
+        "UseMinValue": true,
+        "UseMaxValue": false
+      },
+      {
+        "ID": 16,
+        "InitValue": 100,
+        "MinValue": 0,
+        "MaxValue": 9999,
+        "UseMinValue": true,
+        "UseMaxValue": false
+      },
+      {
+        "ID": 17,
+        "InitValue": 100,
+        "MinValue": 0,
+        "MaxValue": 9999,
+        "UseMinValue": true,
+        "UseMaxValue": false
+      }
+    ]
+  },
+  {
+    "ID": 3,
+    "Name": "Projectile",
+    "Desc": "投射物属性集",
+    "Attribute": []
+  }
+]
