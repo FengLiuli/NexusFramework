@@ -1,12 +1,12 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Unity.Entities;
 using UnityEngine;
 
 namespace NexusFramework.GAS.ECS
 {
-    public sealed class CatchAreaBox3D : TargetCatcherBase<XParamCatchAreaBox3D>  
-    {  
-        private static readonly Collider[] Colliders = new Collider[64];  
+    public sealed class CatchAreaBox3D : TargetCatcherBase<XParamCatchAreaBox3D>
+    {
+        private static readonly Collider[] Colliders = new Collider[64];
 
         protected override void CatchTargetsNonAlloc(Entity mainTarget, List<Entity> results)
         {
@@ -22,7 +22,7 @@ namespace NexusFramework.GAS.ECS
             }
             else
             {
-                var go = _entityResolver?.GetGameObject(mainTarget);
+                var go = ResolveGameObject(mainTarget);
                 if (go == null) return;
                 var mainTransform = go.transform;
                 count = Physics.OverlapBoxNonAlloc(
@@ -35,15 +35,7 @@ namespace NexusFramework.GAS.ECS
 
             for (var i = 0; i < count; ++i)
             {
-                // 反向查找：优先走注入的 resolver，其次用 GetComponentInParent<GASEntityRef>
-                Entity entity;
-                if (_entityResolver != null)
-                    entity = _entityResolver.GetEntity(Colliders[i].gameObject);
-                else
-                {
-                    var gasRef = Colliders[i].GetComponentInParent<GASEntityRef>();
-                    entity = gasRef != null ? gasRef.Entity : Entity.Null;
-                }
+                var entity = ResolveEntity(Colliders[i].gameObject);
                 if (entity != Entity.Null) results.Add(entity);
             }
         }
@@ -90,28 +82,28 @@ namespace NexusFramework.GAS.ECS
 
         [BeanField(nameof(SetLayer), LubanType = "int", Order = 5)]
         public LayerMask layer;
-        
-        
+
+
         public void SetIsWorldSpace(bool isWorld)
         {
             isWorldSpace = isWorld;
         }
-        
+
         public void SetOffset(Vector3 offset)
         {
             this.offset = offset;
         }
-        
+
         public void SetSize(Vector3 size)
         {
             this.size = size;
         }
-        
+
         public void SetRotation(Vector3 rotation)
         {
             this.rotation = rotation;
         }
-        
+
         public void SetLayer(int layer)
         {
             this.layer.value = layer;
@@ -124,17 +116,17 @@ namespace NexusFramework.GAS.ECS
             {
                 var strData = paramData[0] as string;
                 if (string.IsNullOrEmpty(strData)) return;
-                
+
                 if (!bool.TryParse(strData, out isWorldSpace))
                     isWorldSpace = false;
             }
-            
-            // offset 
+
+            // offset
             if (paramData.Count > 1)
             {
                 var strData = paramData[1] as string;
                 if (string.IsNullOrEmpty(strData)) return;
-                
+
                 var data = strData.Split(',');
                 if (data.Length == 3)
                 {
@@ -146,13 +138,13 @@ namespace NexusFramework.GAS.ECS
                     }
                 }
             }
-            
+
             // size
             if (paramData.Count > 2)
             {
                 var strData = paramData[2] as string;
                 if (string.IsNullOrEmpty(strData)) return;
-                
+
                 var data = strData.Split(',');
                 if (data.Length == 3)
                 {
@@ -164,7 +156,7 @@ namespace NexusFramework.GAS.ECS
                     }
                 }
             }
-            
+
             // rotation
             if (paramData.Count > 3)
             {
