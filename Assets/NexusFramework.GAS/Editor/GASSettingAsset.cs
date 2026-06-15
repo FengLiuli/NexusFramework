@@ -11,12 +11,22 @@ namespace NexusFramework.GAS.Editor
 
         public const string DEFAULT_TABLE_OUTPUT_PATH = "Assets/DataGenerated/Luban/Json/GAS";
         public const string DEFAULT_CONFIG_PROJECT_PATH = "Config/exgas_config";
+        public const string DEFAULT_LUBAN_CONFIG_LOADER_PATH = "Assets/Demo/Emberheart/GAS/Generated/LubanConfigLoader.cs";
 
         [Header("表导出路径（Luban JSON 输出）")]
         public string TableOutputPath = DEFAULT_TABLE_OUTPUT_PATH;
 
         [Header("配置表工程路径（含 Datas/ 和 gen.bat）")]
         public string ConfigProjectPath = DEFAULT_CONFIG_PROJECT_PATH;
+
+        [Header("LubanConfigLoader 输出路径")]
+        public string LubanConfigLoaderOutputPath = DEFAULT_LUBAN_CONFIG_LOADER_PATH;
+
+        public string GetLubanConfigLoaderOutputPath()
+        {
+            var projectRoot = Application.dataPath.Substring(0, Application.dataPath.Length - 6);
+            return System.IO.Path.Combine(projectRoot, LubanConfigLoaderOutputPath);
+        }
 
         public string FullGenBatPath()
         {

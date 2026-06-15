@@ -12,5 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7fd9c50c346092f4693bec1037a6f012, type: 3}
   m_Name: GASSetting
   m_EditorClassIdentifier: 
-  TableOutpuPath: Assets/Demo/DataGenerated/Luban/Json/GAS
+  TableOutputPath: Assets/DataGenerated/Luban/Json/GAS
   ConfigProjectPath: Assets/Demo/Table
+  LubanConfigLoaderOutputPath: Assets/Demo/Emberheart/GAS/Generated/LubanConfigLoader.cs

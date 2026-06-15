@@ -1,0 +1,95 @@
+[
+  {
+    "ID": 1,
+    "Name": "TestTimeline",
+    "LifeTime": 5000,
+    "ManualEndAbility": false,
+    "Tracks": [
+      {
+        "Name": "MainTrack",
+        "TaskClips": [
+          {
+            "StartTime": 0,
+            "EndTime": 500,
+            "Name": "ApplyDamage",
+            "Task": {
+              "$type": "TaskApplyEffects",
+              "Param": {
+                "$type": "XParamApplyEffects",
+                "IDs": [1],
+                "TargetCatcher": {
+                  "$type": "CatchSelf",
+                  "Param": {"$type": "XParamNone"}
+                }
+              }
+            }
+          },
+          {
+            "StartTime": 1000,
+            "EndTime": 1500,
+            "Name": "PlayCue",
+            "Task": {
+              "$type": "TaskPlayCue",
+              "Param": {
+                "$type": "XParamCue",
+                "RequiredTags": [],
+                "ImmunityTags": [],
+                "CueLogic": {
+                  "$type": "CueLog",
+                  "Param": {
+                    "$type": "XParamString",
+                    "Value": "Timeline cue triggered"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "Name": "DebugTrack",
+        "TaskClips": [
+          {
+            "StartTime": 2000,
+            "EndTime": 2500,
+            "Name": "DebugLog",
+            "Task": {
+              "$type": "TaskDebug",
+              "Param": {
+                "$type": "XParamString",
+                "Value": "Timeline debug log at 2s"
+              }
+            }
+          },
+          {
+            "StartTime": 3000,
+            "EndTime": 3500,
+            "Name": "DoCooldown",
+            "Task": {
+              "$type": "TaskDoCooldown",
+              "Param": {"$type": "XParamNone"}
+            }
+          },
+          {
+            "StartTime": 4000,
+            "EndTime": 4500,
+            "Name": "DoCost",
+            "Task": {
+              "$type": "TaskDoCost",
+              "Param": {"$type": "XParamNone"}
+            }
+          },
+          {
+            "StartTime": 4500,
+            "EndTime": 5000,
+            "Name": "DoNothing",
+            "Task": {
+              "$type": "TaskDoNothing",
+              "Param": {"$type": "XParamNone"}
+            }
+          }
+        ]
+      }
+    ]
+  }
+]

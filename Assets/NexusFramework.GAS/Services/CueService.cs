@@ -45,6 +45,9 @@ namespace NexusFramework.GAS.Services
                 if (typeof(ModMagnitudeCalculationBase).IsAssignableFrom(type))
                 {
                     GeneralGasChoiceHelper.RegisterMmcType(type);
+                    var paramType = InferParamType(type, typeof(ModMagnitudeCalculationBase<>));
+                    if (paramType != null)
+                        GasMmcHelper.RegisterMmc(type.Name, type, paramType);
                 }
             }
         }

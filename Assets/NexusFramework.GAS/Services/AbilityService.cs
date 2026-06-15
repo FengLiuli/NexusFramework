@@ -29,7 +29,23 @@ namespace NexusFramework.GAS.Services
             {
                 if (type.IsAbstract || !typeof(AbilityLogicBase).IsAssignableFrom(type)) continue;
                 AbilityLogicFactory.Register(type.Name, type);
+
+                var paramType = InferParamType(type, typeof(AbilityLogicBase<>));
+                if (paramType != null)
+                    AbilityLogicFactory.RegisterAbilityLogicParam(type.Name, paramType);
             }
+        }
+
+        private static Type InferParamType(Type subType, Type genericBaseDef)
+        {
+            var baseType = subType.BaseType;
+            while (baseType != null)
+            {
+                if (baseType.IsGenericType && baseType.GetGenericTypeDefinition() == genericBaseDef)
+                    return baseType.GetGenericArguments()[0];
+                baseType = baseType.BaseType;
+            }
+            return null;
         }
 
         public void GrantAbility(CarrierId carrier, int abilityCode, IArchitecture architecture)

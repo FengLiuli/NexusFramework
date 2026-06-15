@@ -1,0 +1,14 @@
+[
+  {
+    "ID": 1,
+    "Name": "Player",
+    "Desc": "Player character",
+    "ASCID": 1
+  },
+  {
+    "ID": 2,
+    "Name": "Enemy",
+    "Desc": "Enemy character",
+    "ASCID": 2
+  }
+]

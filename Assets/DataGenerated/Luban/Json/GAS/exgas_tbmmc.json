@@ -1,0 +1,41 @@
+[
+  {
+    "ID": 1,
+    "Name": "MMC_None",
+    "Desc": "No calculation, uses flat magnitude directly",
+    "MmcLogic": {
+      "$type": "MMCNone",
+      "Param": {"$type": "XParamNone"}
+    }
+  },
+  {
+    "ID": 2,
+    "Name": "MMC_AttributeBased",
+    "Desc": "Calculates magnitude based on target's Attack attribute: result = K * attrValue + B",
+    "MmcLogic": {
+      "$type": "MMCAttributeBased",
+      "Param": {
+        "$type": "AttributeBasedMmcParam",
+        "AttrSetCode": 1,
+        "AttrCode": 3,
+        "FromType": 0,
+        "CaptureType": 0,
+        "K": 1.0,
+        "B": 0.0
+      }
+    }
+  },
+  {
+    "ID": 3,
+    "Name": "MMC_ScalableFloat",
+    "Desc": "Scalable float with K and B coefficients: result = K * baseValue + B",
+    "MmcLogic": {
+      "$type": "MMCScalableFloat",
+      "Param": {
+        "$type": "MmcParaFloatScale",
+        "K": 1.5,
+        "B": 10.0
+      }
+    }
+  }
+]

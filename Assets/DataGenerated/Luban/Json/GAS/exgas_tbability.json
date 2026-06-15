@@ -1,0 +1,69 @@
+[
+  {
+    "ID": 1,
+    "Name": "FireBall",
+    "Desc": "Fireball ability: costs 30 Mana, 5s CD, applies InstantDamage",
+    "Cost": 8,
+    "CdEffect": 1,
+    "Cd": 5000,
+    "AssetTags": [4],
+    "CancelAbilityWithTags": null,
+    "BlockAbilityWithTags": null,
+    "ActivationOwnedTags": [],
+    "ActivationRequiredTags": null,
+    "ActivationBlockedTags": null,
+    "AbilityLogic": {
+      "$type": "ALApplyEffect",
+      "Param": {
+        "$type": "XParamEffectIDs",
+        "IDs": [1]
+      }
+    }
+  },
+  {
+    "ID": 2,
+    "Name": "HealSpell",
+    "Desc": "Healing spell: costs 20 Mana, 3s CD, heals for 50 HP",
+    "Cost": 8,
+    "CdEffect": 1,
+    "Cd": 3000,
+    "AssetTags": [1],
+    "CancelAbilityWithTags": null,
+    "BlockAbilityWithTags": null,
+    "ActivationOwnedTags": [],
+    "ActivationRequiredTags": null,
+    "ActivationBlockedTags": null,
+    "AbilityLogic": {
+      "$type": "ALApplyEffect",
+      "Param": {
+        "$type": "XParamEffectIDs",
+        "IDs": [3]
+      }
+    }
+  },
+  {
+    "ID": 3,
+    "Name": "DebugLogAbility",
+    "Desc": "Debug ability that logs a message",
+    "Cost": 0,
+    "CdEffect": 1,
+    "Cd": 0,
+    "AssetTags": [],
+    "CancelAbilityWithTags": null,
+    "BlockAbilityWithTags": null,
+    "ActivationOwnedTags": [],
+    "ActivationRequiredTags": {
+      "All": [],
+      "Any": [1],
+      "None": []
+    },
+    "ActivationBlockedTags": null,
+    "AbilityLogic": {
+      "$type": "ALDebugLog",
+      "Param": {
+        "$type": "XParamString",
+        "Value": "DebugLogAbility activated!"
+      }
+    }
+  }
+]

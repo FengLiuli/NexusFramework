@@ -1,0 +1,280 @@
+[
+  {
+    "ID": 1,
+    "Name": "InstantDamage",
+    "Desc": "Instant fire damage, flat 30 damage",
+    "AssetTags": [3],
+    "GrantedTags": [],
+    "ApplicationRequiredTags": null,
+    "OngoingRequiredTags": null,
+    "RemoveGameplayEffectsWithTags": null,
+    "ImmunityTags": null,
+    "Duration": null,
+    "Period": null,
+    "Modifiers": [
+      {
+        "AttrSet": 2,
+        "Attribute": 1,
+        "Magnitude": -30,
+        "Operation": 0,
+        "Mmc": 1
+      }
+    ],
+    "CueOnApply": [],
+    "CueOnTick": [],
+    "CueOnAdd": [],
+    "CueOnRemove": [],
+    "CueOnActivate": [],
+    "CueOnDeactivate": [],
+    "GrantedAbility": [],
+    "Stacking": null
+  },
+  {
+    "ID": 2,
+    "Name": "FireDOT",
+    "Desc": "Fire damage over time, applies InstantDamage every 1s for 5s",
+    "AssetTags": [3, 10],
+    "GrantedTags": [],
+    "ApplicationRequiredTags": null,
+    "OngoingRequiredTags": null,
+    "RemoveGameplayEffectsWithTags": null,
+    "ImmunityTags": null,
+    "Duration": {
+      "TimeUnit": 0,
+      "Time": 5000,
+      "ResetStartTimeWhenActivated": false
+    },
+    "Period": {
+      "Time": 1000,
+      "Effects": [1],
+      "FirstTrigger": false
+    },
+    "Modifiers": [
+      {
+        "AttrSet": 2,
+        "Attribute": 1,
+        "Magnitude": -10,
+        "Operation": 0,
+        "Mmc": 1
+      }
+    ],
+    "CueOnApply": [],
+    "CueOnTick": [1],
+    "CueOnAdd": [],
+    "CueOnRemove": [],
+    "CueOnActivate": [],
+    "CueOnDeactivate": [],
+    "GrantedAbility": [],
+    "Stacking": null
+  },
+  {
+    "ID": 3,
+    "Name": "Heal",
+    "Desc": "Instant heal, restores 50 Health",
+    "AssetTags": [1],
+    "GrantedTags": [],
+    "ApplicationRequiredTags": null,
+    "OngoingRequiredTags": null,
+    "RemoveGameplayEffectsWithTags": null,
+    "ImmunityTags": null,
+    "Duration": null,
+    "Period": null,
+    "Modifiers": [
+      {
+        "AttrSet": 2,
+        "Attribute": 1,
+        "Magnitude": 50,
+        "Operation": 0,
+        "Mmc": 1
+      }
+    ],
+    "CueOnApply": [2],
+    "CueOnTick": [],
+    "CueOnAdd": [],
+    "CueOnRemove": [],
+    "CueOnActivate": [],
+    "CueOnDeactivate": [],
+    "GrantedAbility": [],
+    "Stacking": null
+  },
+  {
+    "ID": 4,
+    "Name": "Stun",
+    "Desc": "Stuns the target for 3s, blocked by Immunity tag, removes buffs on apply",
+    "AssetTags": [2],
+    "GrantedTags": [5],
+    "ApplicationRequiredTags": {
+      "All": [],
+      "Any": [],
+      "None": [8]
+    },
+    "OngoingRequiredTags": null,
+    "RemoveGameplayEffectsWithTags": {
+      "All": [9],
+      "Any": [],
+      "None": []
+    },
+    "ImmunityTags": null,
+    "Duration": {
+      "TimeUnit": 0,
+      "Time": 3000,
+      "ResetStartTimeWhenActivated": true
+    },
+    "Period": null,
+    "Modifiers": [],
+    "CueOnApply": [1],
+    "CueOnTick": [],
+    "CueOnAdd": [],
+    "CueOnRemove": [],
+    "CueOnActivate": [],
+    "CueOnDeactivate": [],
+    "GrantedAbility": [],
+    "Stacking": null
+  },
+  {
+    "ID": 5,
+    "Name": "Shield",
+    "Desc": "Stacking shield, +100 Defense for 30s, stacks up to 3 times",
+    "AssetTags": [1],
+    "GrantedTags": [],
+    "ApplicationRequiredTags": null,
+    "OngoingRequiredTags": {
+      "All": [1],
+      "Any": [],
+      "None": []
+    },
+    "RemoveGameplayEffectsWithTags": null,
+    "ImmunityTags": null,
+    "Duration": {
+      "TimeUnit": 0,
+      "Time": 30000,
+      "ResetStartTimeWhenActivated": false
+    },
+    "Period": null,
+    "Modifiers": [
+      {
+        "AttrSet": 1,
+        "Attribute": 4,
+        "Magnitude": 100,
+        "Operation": 0,
+        "Mmc": 1
+      }
+    ],
+    "CueOnApply": [],
+    "CueOnTick": [],
+    "CueOnAdd": [],
+    "CueOnRemove": [],
+    "CueOnActivate": [],
+    "CueOnDeactivate": [],
+    "GrantedAbility": [],
+    "Stacking": {
+      "StackingType": 1,
+      "StackCode": 1001,
+      "LimitCount": 3,
+      "DurationRefreshPolicy": 0,
+      "PeriodResetPolicy": 0,
+      "ExpirationPolicy": 0,
+      "DenyOverflowApplication": false,
+      "ClearStackOnOverflow": false,
+      "OverflowEffects": []
+    }
+  },
+  {
+    "ID": 6,
+    "Name": "AttackUp",
+    "Desc": "Increases Attack by 20 for 10s",
+    "AssetTags": [9],
+    "GrantedTags": [9],
+    "ApplicationRequiredTags": null,
+    "OngoingRequiredTags": null,
+    "RemoveGameplayEffectsWithTags": null,
+    "ImmunityTags": null,
+    "Duration": {
+      "TimeUnit": 0,
+      "Time": 10000,
+      "ResetStartTimeWhenActivated": false
+    },
+    "Period": null,
+    "Modifiers": [
+      {
+        "AttrSet": 1,
+        "Attribute": 3,
+        "Magnitude": 20,
+        "Operation": 0,
+        "Mmc": 1
+      }
+    ],
+    "CueOnApply": [2],
+    "CueOnTick": [],
+    "CueOnAdd": [],
+    "CueOnRemove": [2],
+    "CueOnActivate": [],
+    "CueOnDeactivate": [],
+    "GrantedAbility": [],
+    "Stacking": null
+  },
+  {
+    "ID": 7,
+    "Name": "GrantFireBall",
+    "Desc": "Grants FireBall ability permanently",
+    "AssetTags": [4],
+    "GrantedTags": [],
+    "ApplicationRequiredTags": null,
+    "OngoingRequiredTags": null,
+    "RemoveGameplayEffectsWithTags": null,
+    "ImmunityTags": null,
+    "Duration": {
+      "TimeUnit": 0,
+      "Time": -1,
+      "ResetStartTimeWhenActivated": false
+    },
+    "Period": null,
+    "Modifiers": [],
+    "CueOnApply": [],
+    "CueOnTick": [],
+    "CueOnAdd": [],
+    "CueOnRemove": [],
+    "CueOnActivate": [],
+    "CueOnDeactivate": [],
+    "GrantedAbility": [
+      {
+        "ID": 1,
+        "Level": 1,
+        "ActivationPolicy": 0,
+        "DeactivationPolicy": 0,
+        "RemovePolicy": 0
+      }
+    ],
+    "Stacking": null
+  },
+  {
+    "ID": 8,
+    "Name": "CostMana",
+    "Desc": "Costs 30 Mana (instant)",
+    "AssetTags": [],
+    "GrantedTags": [],
+    "ApplicationRequiredTags": null,
+    "OngoingRequiredTags": null,
+    "RemoveGameplayEffectsWithTags": null,
+    "ImmunityTags": null,
+    "Duration": null,
+    "Period": null,
+    "Modifiers": [
+      {
+        "AttrSet": 2,
+        "Attribute": 2,
+        "Magnitude": -30,
+        "Operation": 0,
+        "Mmc": 1
+      }
+    ],
+    "CueOnApply": [2],
+    "CueOnTick": [],
+    "CueOnAdd": [],
+    "CueOnRemove": [],
+    "CueOnActivate": [],
+    "CueOnDeactivate": [],
+    "GrantedAbility": [],
+    "Stacking": null
+  }
+]

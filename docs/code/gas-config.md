@@ -10,8 +10,12 @@ source_files:
   - Assets/NexusFramework.GAS/ECS/Effect/ComponentConfig/GameplayEffectComponentConfig.cs
   - Assets/NexusFramework.GAS/XParam.cs
   - Assets/NexusFramework.GAS/XParam*.cs
+  - Assets/NexusFramework.GAS/ECS/System/GasMmcHelper.cs
+  - Assets/NexusFramework.GAS/ECS/Ability/Component/AbilityLogic/AbilityLogicFactory.cs
+  - Assets/NexusFramework.GAS/Services/CueService.cs
+  - Assets/NexusFramework.GAS/Services/AbilityService.cs
 created: 2026-06-12
-updated: 2026-06-12
+updated: 2026-06-13
 ---
 
 # 编码文档：GAS 配置系统
@@ -230,6 +234,104 @@ public struct TagNode
     public int[] Children;
 }
 ```
+
+---
+
+## 运行时类型映射
+
+Luban 配置中使用**字符串类型名**（如 `"MMCNone"`、`"ALApplyEffect"`）而不是 C# `Type` 引用。
+运行时类型映射系统负责将字符串解析为实际的 `Type` 对象，用于反射创建实例和传递泛型参数。
+
+### 数据流
+
+```
+Luban 配置字符串 (MMCType="MMCScalableFloat")
+    │
+    ▼
+LubanConfigLoader 生成代码
+    │  ├── GasMmcHelper.GetMmcType("MMCScalableFloat")
+    │  │                     → typeof(MMCScalableFloat)
+    │  └── GasMmcHelper.GetMmcParamType("MMCScalableFloat")
+    │                        → typeof(MmcParaFloatScale)
+    │
+    ▼
+MMCConfig { MmcType, Param = new MmcParaFloatScale() }
+```
+
+### GasMmcHelper — MMC 类型映射
+
+```csharp
+// 注册 MMC 类型及其 XParam 参数类型的映射
+GasMmcHelper.RegisterMmc("MMCNone", typeof(MMCNone), typeof(XParamNone));
+GasMmcHelper.RegisterMmc("MMCScalableFloat", typeof(MMCScalableFloat), typeof(MmcParaFloatScale));
+GasMmcHelper.RegisterMmc("MMCAttributeBased", typeof(MMCAttributeBased), typeof(AttributeBasedMmcParam));
+
+// 查询
+Type mmcType = GasMmcHelper.GetMmcType("MMCNone");           // typeof(MMCNone)
+Type paramType = GasMmcHelper.GetMmcParamType("MMCNone");    // typeof(XParamNone)
+```
+
+### AbilityLogicFactory — Ability XParam 类型映射
+
+```csharp
+// 注册 AbilityLogic 的 XParam 参数类型
+AbilityLogicFactory.RegisterAbilityLogicParam("ALApplyEffect", typeof(XParamEffectIDs));
+AbilityLogicFactory.RegisterAbilityLogicParam("ALDebugLog", typeof(XParamString));
+
+// AbilityTask 参数类型（预留，当前始终返回 null）
+Type taskParamType = AbilityLogicFactory.GetAbilityTaskParamType("TaskDoNothing");  // null
+
+// 查询
+Type paramType = AbilityLogicFactory.GetAbilityLogicParamType("ALApplyEffect");   // typeof(XParamEffectIDs)
+```
+
+### 自动注册入口
+
+类型映射在 `Service.OnInit()` 中通过反射自动填充，无需手动调用：
+
+**CueService.ScanAndRegisterAll()** — 同时注册 MMC 类型和 XParam 参数类型：
+
+```
+遍历程序集中所有非抽象类型:
+  ├── GameplayCueBase<T> 子类
+  │   → InferParamType() → CueHelper.RegisterCue(name, type, paramType)  [已有]
+  │
+  └── ModMagnificationCalculationBase<T> 子类
+      → InferParamType() → GasMmcHelper.RegisterMmc(name, type, paramType)  [新增]
+```
+
+**AbilityService.ScanAndRegisterAll()** — 注册 AbilityLogic 时补充 XParam 参数类型：
+
+```
+遍历程序集中所有非抽象 AbilityLogicBase 子类:
+  ├── AbilityLogicFactory.Register(name, type)  [已有]
+  └── InferParamType() → RegisterAbilityLogicParam(name, paramType)  [新增]
+```
+
+### InferParamType 反射算法
+
+```csharp
+private static Type InferParamType(Type subType, Type genericBaseDef)
+{
+    var baseType = subType.BaseType;
+    while (baseType != null)
+    {
+        if (baseType.IsGenericType && baseType.GetGenericTypeDefinition() == genericBaseDef)
+            return baseType.GetGenericArguments()[0];
+        baseType = baseType.BaseType;
+    }
+    return null;
+}
+```
+
+从子类的基类链中向上查找泛型基类（如 `ModMagnificationCalculationBase<T>`），提取第一个泛型参数。
+
+### 设计约束
+
+- AbilityTask 暂不支持 XParam 映射（缺乏 `AbilityTaskBase<T>` 泛型基类）
+- 注册入口位于 Service.OnInit() 中，保证在 ConfigModel 加载前映射就绪
+- 采用显式字典存储（`Dictionary<string, Type>`），遵循 CueHelper 的已有模式
+- 反射推断只在初始化时执行一次，运行时无额外开销
 
 ---
 

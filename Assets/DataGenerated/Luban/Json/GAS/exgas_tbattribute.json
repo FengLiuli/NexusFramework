@@ -1,0 +1,7 @@
+[
+  {"ID": 1, "Name": "Health", "Desc": "生命值"},
+  {"ID": 2, "Name": "Mana", "Desc": "法力值"},
+  {"ID": 3, "Name": "Attack", "Desc": "攻击力"},
+  {"ID": 4, "Name": "Defense", "Desc": "防御力"},
+  {"ID": 5, "Name": "Speed", "Desc": "速度"}
+]

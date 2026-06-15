@@ -1,0 +1,12 @@
+[
+  {"id": 1, "Name": "Effect.Buff", "Desc": "Buff Category"},
+  {"id": 2, "Name": "Effect.Debuff", "Desc": "Debuff Category"},
+  {"id": 3, "Name": "Effect.Debuff.Fire", "Desc": "Fire Damage Tag"},
+  {"id": 4, "Name": "Ability.Fire", "Desc": "Fire Ability Tag"},
+  {"id": 5, "Name": "State.Stun", "Desc": "Stun State Tag"},
+  {"id": 6, "Name": "Damage.Physical", "Desc": "Physical Damage Type"},
+  {"id": 7, "Name": "Damage.Magic", "Desc": "Magic Damage Type"},
+  {"id": 8, "Name": "Gameplay.Immune", "Desc": "Immune Tag for immunity checks"},
+  {"id": 9, "Name": "Effect.Buff.AttackUp", "Desc": "Attack Up Buff"},
+  {"id": 10, "Name": "Effect.Debuff.DOT", "Desc": "Damage Over Time Tag"}
+]

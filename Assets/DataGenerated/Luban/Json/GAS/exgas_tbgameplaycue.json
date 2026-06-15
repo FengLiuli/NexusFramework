@@ -1,0 +1,57 @@
+[
+  {
+    "ID": 1,
+    "Name": "Cue_HitSound",
+    "Desc": "Plays a hit sound on effect application",
+    "RequiredTag": null,
+    "ImmunityTag": null,
+    "CueLogic": {
+      "$type": "CuePlaySound",
+      "Param": {
+        "$type": "XParamPlaySound",
+        "AudioClipPath": "Audio/SFX/HitSound",
+        "Volume": 0.8,
+        "Speed": 1.0,
+        "Loop": false,
+        "AudioSourceNodePath": ""
+      }
+    }
+  },
+  {
+    "ID": 2,
+    "Name": "Cue_LogDamage",
+    "Desc": "Logs damage/heal value when effect is applied",
+    "RequiredTag": null,
+    "ImmunityTag": null,
+    "CueLogic": {
+      "$type": "CueLog",
+      "Param": {
+        "$type": "XParamString",
+        "Value": "Effect applied: damage/heal"
+      }
+    }
+  },
+  {
+    "ID": 3,
+    "Name": "Cue_FireEffect",
+    "Desc": "Logging cue for fire effects with tag requirements",
+    "RequiredTag": {
+      "All": [3],
+      "Any": [],
+      "None": []
+    },
+    "ImmunityTag": {
+      "All": [],
+      "Any": [],
+      "None": [8]
+    },
+    "CueLogic": {
+      "$type": "CueLogging",
+      "Param": {
+        "$type": "XParamLogging",
+        "Value": "Fire effect triggered!",
+        "Duration": 2.0
+      }
+    }
+  }
+]

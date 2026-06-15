@@ -1,9 +1,32 @@
+using System;
+using System.Collections.Generic;
 using Unity.Entities;
 
 namespace NexusFramework.GAS.ECS
 {
     public static class GasMmcHelper
     {
+        private static readonly Dictionary<string, Type> _mmcTypes = new();
+        private static readonly Dictionary<string, Type> _mmcParamTypes = new();
+
+        public static void RegisterMmc(string sType, Type mmcType, Type paramType)
+        {
+            _mmcTypes[sType] = mmcType;
+            _mmcParamTypes[sType] = paramType;
+        }
+
+        public static Type GetMmcType(string sType)
+        {
+            _mmcTypes.TryGetValue(sType, out var type);
+            return type;
+        }
+
+        public static Type GetMmcParamType(string sType)
+        {
+            _mmcParamTypes.TryGetValue(sType, out var type);
+            return type;
+        }
+
         public static float Calculate(EntityManager entityManager, Entity ge, EffectModifier modifier, float sourceValue)
         {
             var geData = entityManager.GetComponentData<CEffectInUsage>(ge);

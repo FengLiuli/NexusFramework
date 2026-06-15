@@ -8,16 +8,17 @@
         "NexusFramework.GAS",
         "NexusFramework.GAS.Editor",
         "Unity.Entities",
-        "Unity.Collections"
+        "Unity.Collections",
+        "Demo"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
-    "overrideReferences": true,
+    "overrideReferences": false,
     "precompiledReferences": [
         "nunit.framework.dll"
     ],
-    "autoReferenced": false,
+    "autoReferenced": true,
     "defineConstraints": [
         "UNITY_INCLUDE_TESTS"
     ],
