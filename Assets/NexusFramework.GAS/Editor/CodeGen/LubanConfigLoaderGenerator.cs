@@ -141,6 +141,10 @@ namespace NexusFramework.GAS.Editor
                 writer.WriteLine("public TagHierarchyData ParseTagHierarchy(string json) => default;");
                 writer.WriteLine("");
 
+                // ── ASC 配置查询（IConfigLoader 接口实现）──
+                WriteIConfigLoaderAscMethods(writer);
+                writer.WriteLine("");
+
                 // ── 强类型查询方法 ──
                 WriteEffectConfigMethod(writer);
                 WriteAbilityConfigMethod(writer);
@@ -761,6 +765,70 @@ namespace NexusFramework.GAS.Editor
             writer.WriteLine("");
         }
 
+
+        private static void WriteIConfigLoaderAscMethods(IndentedWriter writer)
+        {
+            writer.WriteLine("AscConfigData? IConfigLoader.GetAscConfig(int ascId)");
+            writer.WriteLine("{");
+            writer.Indent++;
+            {
+                writer.WriteLine("if (_tables == null) return null;");
+                writer.WriteLine("var data = _tables.Tbasc.GetOrDefault(ascId);");
+                writer.WriteLine("if (data == null) return null;");
+                writer.WriteLine("");
+                writer.WriteLine("return new AscConfigData");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("Level = data.Level,");
+                writer.WriteLine("Tags = data.Tag,");
+                writer.WriteLine("AttrSetIds = data.AttrSet,");
+                writer.WriteLine("AbilityIds = data.Ability");
+                writer.Indent--;
+                writer.WriteLine("};");
+            }
+            writer.Indent--;
+            writer.WriteLine("}");
+            writer.WriteLine("");
+
+            writer.WriteLine("AttrSetDef? IConfigLoader.GetAttrSetDef(int attrSetId)");
+            writer.WriteLine("{");
+            writer.Indent++;
+            {
+                writer.WriteLine("if (_tables == null) return null;");
+                writer.WriteLine("var data = _tables.TbattributeSet.GetOrDefault(attrSetId);");
+                writer.WriteLine("if (data == null) return null;");
+                writer.WriteLine("");
+                writer.WriteLine("var attrs = new AttrInitDef[data.Attribute.Length];");
+                writer.WriteLine("for (int i = 0; i < data.Attribute.Length; i++)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("var src = data.Attribute[i];");
+                writer.WriteLine("attrs[i] = new AttrInitDef");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("Code = src.ID,");
+                writer.WriteLine("InitValue = src.InitValue,");
+                writer.WriteLine("MinValue = src.MinValue,");
+                writer.WriteLine("MaxValue = src.MaxValue,");
+                writer.WriteLine("UseMinValue = src.UseMinValue,");
+                writer.WriteLine("UseMaxValue = src.UseMaxValue");
+                writer.Indent--;
+                writer.WriteLine("};");
+                writer.Indent--;
+                writer.WriteLine("}");
+                writer.WriteLine("");
+                writer.WriteLine("return new AttrSetDef");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("AttrSetCode = attrSetId,");
+                writer.WriteLine("Attributes = attrs");
+                writer.Indent--;
+                writer.WriteLine("};");
+            }
+            writer.Indent--;
+            writer.WriteLine("}");
+            writer.WriteLine("");
+        }
 
         private static void WriteUtilityMethods(IndentedWriter writer)
         {

@@ -27,6 +27,8 @@ namespace NexusFramework.GAS.Tests
         public GameplayCueConfig ParseGameplayCue(string json) => default;
         public MMCConfig ParseMmc(string json) => default;
         public TagHierarchyData ParseTagHierarchy(string json) => default;
+        public AscConfigData? GetAscConfig(int ascId) => null;
+        public AttrSetDef? GetAttrSetDef(int attrSetId) => null;
 
         /// <summary>将测试数据注册到 ConfigModel</summary>
         public static void Populate(ConfigModel model)

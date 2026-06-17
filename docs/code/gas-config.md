@@ -6,6 +6,7 @@ source_files:
   - Assets/NexusFramework.GAS/Config/IConfigLoader.cs
   - Assets/NexusFramework.GAS/Config/JsonConfigLoader.cs
   - Assets/NexusFramework.GAS/Config/GeneralGasChoiceHelper.cs
+  - Assets/NexusFramework.GAS/Config/AscConfigData.cs
   - Assets/NexusFramework.GAS/ECS/Ability/ComponentConfig/AbilityComponentConfig.cs
   - Assets/NexusFramework.GAS/ECS/Effect/ComponentConfig/GameplayEffectComponentConfig.cs
   - Assets/NexusFramework.GAS/XParam.cs
@@ -14,6 +15,8 @@ source_files:
   - Assets/NexusFramework.GAS/ECS/Ability/Component/AbilityLogic/AbilityLogicFactory.cs
   - Assets/NexusFramework.GAS/Services/CueService.cs
   - Assets/NexusFramework.GAS/Services/AbilityService.cs
+  - Assets/NexusFramework.GAS/Models/ConfigModel.cs
+  - Assets/NexusFramework.GAS/GASArchitecture.cs
 created: 2026-06-12
 updated: 2026-06-13
 ---
@@ -49,6 +52,10 @@ public interface IConfigLoader : IUtility
     GameplayCueConfig ParseGameplayCue(string json);                   // 解析 Cue
     MMCConfig ParseMmc(string json);                                   // 解析 MMC
     TagHierarchyData ParseTagHierarchy(string json);                   // 解析标签层级
+
+    // ── ASC 配置（从配置表加载 ASC 和属性集）──
+    AscConfigData? GetAscConfig(int ascId);       // 获取 ASC 配置
+    AttrSetDef? GetAttrSetDef(int attrSetId);     // 获取属性集定义
 }
 ```
 
@@ -72,26 +79,38 @@ public class JsonConfigLoader : IConfigLoader
 ```csharp
 var configModel = arch.GetModel<ConfigModel>();
 
-// ── 注册配置 ──
+// ── 注册配置（通用）──
 configModel.RegisterEffect(configId, componentConfigs);
 configModel.RegisterAbility(abilityCode, componentConfigs);
 configModel.RegisterCues(cueConfigs);
 configModel.RegisterMmcs(mmcConfigs);
 configModel.RegisterTagHierarchy(tagData);
 
-// ── 从 IConfigLoader 加载 ──
+// ── 注册配置（ASC / 属性集）──
+configModel.RegisterAscConfig(ascId, ascConfigData);
+configModel.RegisterAttrSetDef(attrSetId, attrSetDef);
+
+// ── 从 IConfigLoader 加载（通用）──
 configModel.LoadEffect(loader, configId, "path/to/effect.json");
 configModel.LoadAbility(loader, abilityCode, "path/to/ability.json");
 configModel.LoadTags(loader, "path/to/tags.json");
 configModel.LoadEffectsFromDir(loader, "Config/Effects/");      // 按目录批量加载
 configModel.LoadAbilitiesFromDir(loader, "Config/Abilities/");  // 按目录批量加载
 
-// ── 查询配置 ──
+// ── 从 IConfigLoader 加载（ASC / 属性集）──
+configModel.LoadAscConfig(loader, ascId);       // 加载单个 ASC 配置
+configModel.LoadAttrSetDef(loader, attrSetId);  // 加载单个属性集定义
+
+// ── 查询配置（通用）──
 var geConfigs = configModel.GetGameplayEffectConfig(configId);
 var abilityConfigs = configModel.GetAbilityConfig(abilityCode);
 var cueConfig = configModel.GetGameplayCueConfig(cueId);
 var mmcConfig = configModel.GetMmcConfig(mmcId);
 var tagHierarchy = configModel.GetTagHierarchy();
+
+// ── 查询配置（ASC / 属性集）──
+AscConfigData? ascConfig = configModel.GetAscConfig(ascId);
+AttrSetDef? attrSetDef = configModel.GetAttrSetDef(attrSetId);
 ```
 
 ---
@@ -335,6 +354,74 @@ private static Type InferParamType(Type subType, Type genericBaseDef)
 
 ---
 
+## ASC 运行时创建
+
+### 数据模型
+
+```csharp
+// ASC 配置（从 cfg.exgas.asc 表映射）
+public struct AscConfigData
+{
+    public int Level;
+    public int[] Tags;           // 初始固有标签
+    public int[] AttrSetIds;     // 属性集 ID 列表
+    public int[] AbilityIds;     // 初始技能 ID 列表
+}
+
+// 属性集定义（从 cfg.exgas.attributeSet 表映射）
+public struct AttrSetDef
+{
+    public int AttrSetCode;
+    public AttrInitDef[] Attributes;
+}
+
+// 单条属性的初始值（从 cfg.AttributeInSet 映射）
+public struct AttrInitDef
+{
+    public int Code;           // 属性代码
+    public float InitValue;    // 初始值（BaseValue = CurrentValue）
+    public float MinValue;     // 最小值
+    public float MaxValue;     // 最大值
+    public bool UseMinValue;   // 是否启用下限
+    public bool UseMaxValue;   // 是否启用上限
+}
+```
+
+### 一行创建 ASC
+
+```csharp
+// GASArchitecture 重载：从 ConfigModel 读取 ASC 配置，自动初始化
+CarrierId heroId = arch.CreateGASCarrier("Hero", ascId: 1, heroGo);
+```
+
+内部流程：
+
+1. **搭骨架** — 调 `CreateGASCarrier(typeName, go)` 执行 `SetupGASEntity`，创建 ECS Entity + 所有 Buffer/Component
+2. **读配置** — `ConfigModel.GetAscConfig(ascId)` 读取 ASC 配置
+3. **设等级** — `CAscBasicData.Level = ascConfig.Level`
+4. **设标签** — 遍历 `ascConfig.Tags`，添加到 `BFixedTag` Buffer
+5. **设属性集** — 遍历 `ascConfig.AttrSetIds`，对每个 ID 查 `ConfigModel.GetAttrSetDef`：
+   - 创建 `NativeArray<CAttributeData>`，从 `AttrInitDef[]` 逐字段映射
+   - 添加到 `BEAttrSet` Buffer
+6. **授予技能** — 遍历 `ascConfig.AbilityIds`，调 `AbilityService.GrantAbility`
+
+### 属性集映射对照
+
+| AttrInitDef | → | CAttributeData |
+|-------------|---|---------------|
+| Code | → | Code |
+| InitValue | → | BaseValue = CurrentValue |
+| MinValue | → | MinValue（仅当 UseMinValue=true） |
+| MaxValue | → | MaxValue（仅当 UseMaxValue=true） |
+| UseMinValue | → | IsClampMin |
+| UseMaxValue | → | IsClampMax |
+
+### 容错策略
+
+- `ascId` 不存在 → 返回骨架 Entity（无标签/属性/技能），不抛异常
+- `attrSetId` 不存在 → 跳过该属性集，不影响其他属性集初始化
+- 两种场景均通过 `ascId` 重载而非默认参数，避免误用
+
 ## 已知限制
 
 1. `JsonConfigLoader` 的 `ParseGameplayEffect`、`ParseAbility`、`ParseGameplayCue`、`ParseMmc` 方法部分待实现
@@ -346,3 +433,5 @@ private static Type InferParamType(Type subType, Type genericBaseDef)
 
 - GAS 架构：[GAS 架构与服务层](gas-architecture.md)
 - ECS 组件：[GAS ECS 组件清单](gas-ecs-components.md)
+- 需求：[R004 运行时从 Luban 配置创建 ASC 对象](../requirements/R004-runtime-asc-creation-from-luban.md)
+- 设计：[D003 Luban 配置桥接设计](../design/D003-luban-config-bridge.md)（ASC 运行时创建章节）

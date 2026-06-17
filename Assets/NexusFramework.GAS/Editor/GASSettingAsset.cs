@@ -7,7 +7,7 @@ namespace NexusFramework.GAS.Editor
 {
     public class GASSettingAsset : ScriptableObject
     {
-        private const string SETTING_PATH = "Assets/NexusFramework.GAS/Editor/GASSetting.asset";
+        private const string SETTING_PATH = "Assets/Settings/GASSetting.asset";
 
         public const string DEFAULT_TABLE_OUTPUT_PATH = "Assets/DataGenerated/Luban/Json/GAS";
         public const string DEFAULT_CONFIG_PROJECT_PATH = "Config/exgas_config";

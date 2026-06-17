@@ -241,8 +241,10 @@ namespace NexusFramework.GAS.Tests.Editor
 | 生成器基础 | 3 | ⏳（待执行） | ⏳ | ⏳ |
 | 输出代码编译 | 2 | ✅ 已通过 | - | - |
 | 字段映射正确性 | 7 | ⏳（数据就绪，待执行） | ⏳ | ⏳ |
+| ASC 配置加载 | 6 | 🔄 待实现 | 🔄 | 🔄 |
+| ASC 运行时创建 | 7 | 🔄 待实现 | 🔄 | 🔄 |
 | 回归验证 | 9 | ⏳（待执行） | ⏳ | ⏳ |
-| **总计** | **21** | ⏳ | ⏳ | ⏳ |
+| **总计** | **34** | ⏳ | ⏳ | ⏳ |
 
 ## 测试数据
 
@@ -278,10 +280,40 @@ namespace NexusFramework.GAS.Tests.Editor
 | MAP-05 Tag 层级 | `exgas_tbgameplaytags.json` ID=1..10 |
 | MAP-06 GameplayCue 配置 | `exgas_tbgameplaycue.json` ID=1..3 |
 | MAP-07 不存在的 ID 返回 null | 参数 99999 |
+| MAP-08 `GetAscConfig` 配置字段 | `exgas_tbasc.json` ID=1 (PlayerASC) |
+| MAP-09 `GetAttrSetDef` 属性初始值 | `exgas_tbattributeset.json` ID=1 (Warrior: Attack=100, Defense=50) |
+| MAP-10 `CreateGASCarrier(ascId)` 属性集完整性 | ASC ID=1 引用 attrSetId=1,2 |
+| MAP-11 不存在的 ascId 优雅降级 | ASC ID=99999 |
+	
+#### ASC 配置加载测试组 (`ASCConfigTests`)
+
+| 编号 | 场景 | 输入 | 预期输出 | 类型 |
+|------|------|------|---------|------|
+| ASC-01 | `GetAscConfig` 返回非 null | ascId=1 (PlayerASC) | `AscConfigData` 非 null，Level=1 | 集成 |
+| ASC-02 | `GetAscConfig` 配置字段正确 | ascId=1 | Tags=[1], AttrSetIds=[1,2], AbilityIds=[1001,1002] | 集成 |
+| ASC-03 | `GetAscConfig` 不存在的 ascId 返回 null | ascId=99999 | null | 容错 |
+| ASC-04 | `GetAttrSetDef` 返回非 null | attrSetId=1 (Warrior) | `AttrSetDef` 非 null，含 2 个 Attribute | 集成 |
+| ASC-05 | `GetAttrSetDef` 字段映射正确 | attrSetId=1 | Attack(InitValue=100, Min=0, Max=9999), Defense(InitValue=50, Min=0, Max=9999) | 集成 |
+| ASC-06 | `GetAttrSetDef` 不存在的 attrSetId 返回 null | attrSetId=99999 | null | 容错 |
+
+#### ASC 运行时创建测试组 (`ASCRuntimeCreationTests`)
+
+| 编号 | 场景 | 输入 | 预期输出 | 类型 |
+|------|------|------|---------|------|
+| CRT-01 | `CreateGASCarrier(type, ascId)` 返回有效 Carrier | type="Hero", ascId=1 | CarrierId.IsValid=true | 集成 |
+| CRT-02 | Carrier 的 Entity 存在所有 GAS Buffer | 同上 | BEAttrSet / BAbility / BFixedTag / CAscBasicData | 集成 |
+| CRT-03 | CAscBasicData.Level 与配置一致 | ascId=1 (Level=1) | Level == 1 | 集成 |
+| CRT-04 | BFixedTag 与配置一致 | ascId=1 (Tags=[1]) | 包含 tag=1 | 集成 |
+| CRT-05 | BEAttrSet 内容与属性集定义一致 | ascId=1 引用 attrSetId=1 | Attack attr: Code=3, Base=100, Min=0, Max=9999 | 集成 |
+| CRT-06 | BAbility 已授予技能 | ascId=1 (Ability=[1001,1002]) | 2 个 Ability 已授予 | 集成 |
+| CRT-07 | 不存在的 ascId 优雅降级 | ascId=99999 | 返回有效 Carrier，无标签/属性/技能 | 容错 |
+
+### 测试代码更新
 
 ## 关联
 
 - 需求：[R003 LubanConfigLoader 生成器配套运行时类型映射](../requirements/R003-luban-config-loader-helper-methods.md)
+- 需求：[R004 运行时从 Luban 配置创建 ASC 对象](../requirements/R004-runtime-asc-creation-from-luban.md)
 - 设计：[D003 Luban 配置桥接设计](../design/D003-luban-config-bridge.md)
 - 任务：[T003](../tasks/T003-luban-config-loader-generator.md)
 - 编码：[GAS 配置系统](../code/gas-config.md)

@@ -15,6 +15,8 @@ namespace NexusFramework.GAS.Models
         private Config.GameplayCueConfig[] _cues = System.Array.Empty<Config.GameplayCueConfig>();
         private Config.MMCConfig[] _mmcs = System.Array.Empty<Config.MMCConfig>();
         private Config.TagHierarchyData _tagHierarchy;
+        private readonly Dictionary<int, Config.AscConfigData> _ascConfigs = new();
+        private readonly Dictionary<int, Config.AttrSetDef> _attrSetDefs = new();
 
         protected override void OnInit() { }
 
@@ -25,6 +27,8 @@ namespace NexusFramework.GAS.Models
             _cues = System.Array.Empty<Config.GameplayCueConfig>();
             _mmcs = System.Array.Empty<Config.MMCConfig>();
             _tagHierarchy = default;
+            _ascConfigs.Clear();
+            _attrSetDefs.Clear();
         }
 
         // ── 注册 ──
@@ -44,6 +48,12 @@ namespace NexusFramework.GAS.Models
         public void RegisterTagHierarchy(Config.TagHierarchyData data)
             => _tagHierarchy = data;
 
+        public void RegisterAscConfig(int ascId, Config.AscConfigData config)
+            => _ascConfigs[ascId] = config;
+
+        public void RegisterAttrSetDef(int attrSetId, Config.AttrSetDef def)
+            => _attrSetDefs[attrSetId] = def;
+
         // ── 查询 ──
 
         public GameplayEffectComponentConfig[] GetGameplayEffectConfig(int id)
@@ -60,6 +70,12 @@ namespace NexusFramework.GAS.Models
 
         public Config.TagHierarchyData GetTagHierarchy()
             => _tagHierarchy;
+
+        public Config.AscConfigData? GetAscConfig(int ascId)
+            => _ascConfigs.TryGetValue(ascId, out var c) ? c : null;
+
+        public Config.AttrSetDef? GetAttrSetDef(int attrSetId)
+            => _attrSetDefs.TryGetValue(attrSetId, out var d) ? d : null;
 
         // ── 从 IConfigLoader 加载 ──
 
@@ -107,6 +123,20 @@ namespace NexusFramework.GAS.Models
                     if (json != null) RegisterAbility(id, loader.ParseAbility(json));
                 }
             }
+        }
+
+        /// <summary>加载单个 ASC 配置</summary>
+        public void LoadAscConfig(Config.IConfigLoader loader, int ascId)
+        {
+            var config = loader.GetAscConfig(ascId);
+            if (config != null) RegisterAscConfig(ascId, config.Value);
+        }
+
+        /// <summary>加载单个属性集定义</summary>
+        public void LoadAttrSetDef(Config.IConfigLoader loader, int attrSetId)
+        {
+            var def = loader.GetAttrSetDef(attrSetId);
+            if (def != null) RegisterAttrSetDef(attrSetId, def.Value);
         }
     }
 }

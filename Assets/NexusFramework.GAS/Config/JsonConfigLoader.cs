@@ -50,5 +50,19 @@ namespace NexusFramework.GAS.Config
             var node = JsonUtility.FromJson<TagNode>(json);
             return new TagHierarchyData { Tags = new[] { node } };
         }
+
+        // ── ASC 运行时创建（Luban 场景，JSON 模式暂不支持）──
+
+        public AscConfigData? GetAscConfig(int ascId)
+        {
+            Debug.LogWarning("[JsonConfigLoader] GetAscConfig not implemented (Luban only)");
+            return null;
+        }
+
+        public AttrSetDef? GetAttrSetDef(int attrSetId)
+        {
+            Debug.LogWarning("[JsonConfigLoader] GetAttrSetDef not implemented (Luban only)");
+            return null;
+        }
     }
 }

@@ -69,6 +69,50 @@ namespace NexusFramework.GAS.Config
         public MMCConfig ParseMmc(string json) => default;
         public TagHierarchyData ParseTagHierarchy(string json) => default;
 
+        AscConfigData? IConfigLoader.GetAscConfig(int ascId)
+        {
+            if (_tables == null) return null;
+            var data = _tables.Tbasc.GetOrDefault(ascId);
+            if (data == null) return null;
+
+            return new AscConfigData
+            {
+                Level = data.Level,
+                Tags = data.Tag,
+                AttrSetIds = data.AttrSet,
+                AbilityIds = data.Ability
+            };
+        }
+
+        AttrSetDef? IConfigLoader.GetAttrSetDef(int attrSetId)
+        {
+            if (_tables == null) return null;
+            var data = _tables.TbattributeSet.GetOrDefault(attrSetId);
+            if (data == null) return null;
+
+            var attrs = new AttrInitDef[data.Attribute.Length];
+            for (int i = 0; i < data.Attribute.Length; i++)
+            {
+                var src = data.Attribute[i];
+                attrs[i] = new AttrInitDef
+                {
+                    Code = src.ID,
+                    InitValue = src.InitValue,
+                    MinValue = src.MinValue,
+                    MaxValue = src.MaxValue,
+                    UseMinValue = src.UseMinValue,
+                    UseMaxValue = src.UseMaxValue
+                };
+            }
+
+            return new AttrSetDef
+            {
+                AttrSetCode = attrSetId,
+                Attributes = attrs
+            };
+        }
+
+
         /// <summary>通过 ID 获取 GameplayEffect 配置</summary>
         public static GameplayEffectComponentConfig[] GetEffectConfig(int id)
         {
@@ -435,6 +479,8 @@ namespace NexusFramework.GAS.Config
         /// <summary>通过 ID 获取 MMC 配置</summary>
         public static ECS.MMCConfig GetMmcConfig(int id)
         {
+            if (_tables == null) return new ECS.MMCConfig();
+
             var data = Tables.Tbmmc.Get(id);
             if (data == null)
             {
@@ -459,6 +505,8 @@ namespace NexusFramework.GAS.Config
         public static (int[] tags, object[] attrSetConfigs, AbilityComponentConfig[][] abilities, int level)
             GetAscConfig(int id)
         {
+            if (_tables == null) return (Array.Empty<int>(), Array.Empty<object>(), Array.Empty<AbilityComponentConfig[]>(), 0);
+
             var data = Tables.Tbasc.Get(id);
             if (data == null)
             {
