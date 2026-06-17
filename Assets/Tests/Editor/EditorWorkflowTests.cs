@@ -9,7 +9,7 @@ namespace NexusFramework.GAS.Tests.Editor
     [TestFixture]
     public class EditorWorkflowTests
     {
-        private const string PROJ_ROOT = "Assets/NexusFramework.GAS/Editor/GASSetting.asset";
+        private const string PROJ_ROOT = "Assets/Settings/GASSetting.asset";
 
         /// <summary>LoadOrCreate 返回有效资产</summary>
         [Test]

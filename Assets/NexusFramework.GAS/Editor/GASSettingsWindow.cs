@@ -12,7 +12,7 @@ namespace NexusFramework.GAS.Editor
         private static void Open()
         {
             var window = GetWindow<GASSettingsWindow>(false, "NF.GAS Settings");
-            window.minSize = new Vector2(400, 140);
+            window.minSize = new Vector2(400, 260);
             window.Show();
         }
 
@@ -32,6 +32,7 @@ namespace NexusFramework.GAS.Editor
 
             EditorGUILayout.PropertyField(serialized.FindProperty("TableOutputPath"));
             EditorGUILayout.PropertyField(serialized.FindProperty("ConfigProjectPath"));
+            EditorGUILayout.PropertyField(serialized.FindProperty("LubanConfigLoaderOutputPath"));
 
             serialized.ApplyModifiedProperties();
 
@@ -43,6 +44,16 @@ namespace NexusFramework.GAS.Editor
             if (GUILayout.Button("导出 Luban JSON 表", GUILayout.Height(30)))
             {
                 _setting.RunGenBat();
+            }
+
+            EditorGUILayout.Space(5);
+            EditorGUILayout.HelpBox(
+                $"LubanConfigLoader: {_setting.LubanConfigLoaderOutputPath}",
+                File.Exists(_setting.GetLubanConfigLoaderOutputPath()) ? MessageType.Info : MessageType.Warning);
+
+            if (GUILayout.Button("Generate LubanConfigLoader", GUILayout.Height(30)))
+            {
+                LubanConfigLoaderGenerator.Generate();
             }
         }
     }

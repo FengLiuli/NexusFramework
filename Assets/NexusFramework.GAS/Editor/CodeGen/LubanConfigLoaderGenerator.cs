@@ -144,6 +144,9 @@ namespace NexusFramework.GAS.Editor
                 // ── ASC 配置查询（IConfigLoader 接口实现）──
                 WriteIConfigLoaderAscMethods(writer);
                 writer.WriteLine("");
+                
+                WriteRegisterAllConfigToMethod(writer);
+                writer.WriteLine("");
 
                 // ── 强类型查询方法 ──
                 WriteEffectConfigMethod(writer);
@@ -824,6 +827,73 @@ namespace NexusFramework.GAS.Editor
                 writer.WriteLine("Attributes = attrs");
                 writer.Indent--;
                 writer.WriteLine("};");
+            }
+            writer.Indent--;
+            writer.WriteLine("}");
+            writer.WriteLine("");
+        }
+        
+                private static void WriteRegisterAllConfigToMethod(IndentedWriter writer)
+        {
+            writer.WriteLine("/// <summary>");
+            writer.WriteLine("/// 将 _tables 中所有 ASC/AttrSet 配置批量注册到 ConfigModel，支持追加覆盖。");
+            writer.WriteLine("/// 多次调用、多数据源调用均可安全叠加。");
+            writer.WriteLine("/// </summary>");
+            writer.WriteLine("public static void RegisterAllConfigTo(ConfigModel configModel)");
+            writer.WriteLine("{");
+            writer.Indent++;
+            {
+                writer.WriteLine("if (_tables == null) return;");
+                writer.WriteLine("");
+
+                writer.WriteLine("// 注册所有 ASC 配置");
+                writer.WriteLine("foreach (var asc in _tables.Tbasc.DataList)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("configModel.RegisterAscConfig(asc.ID, new AscConfigData");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("Level = asc.Level,");
+                writer.WriteLine("Tags = asc.Tag,");
+                writer.WriteLine("AttrSetIds = asc.AttrSet,");
+                writer.WriteLine("AbilityIds = asc.Ability");
+                writer.Indent--;
+                writer.WriteLine("});");
+                writer.Indent--;
+                writer.WriteLine("}");
+                writer.WriteLine("");
+
+                writer.WriteLine("// 注册所有属性集定义");
+                writer.WriteLine("foreach (var attrSet in _tables.TbattributeSet.DataList)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("var attrs = new AttrInitDef[attrSet.Attribute.Length];");
+                writer.WriteLine("for (int i = 0; i < attrSet.Attribute.Length; i++)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("var src = attrSet.Attribute[i];");
+                writer.WriteLine("attrs[i] = new AttrInitDef");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("Code = src.ID,");
+                writer.WriteLine("InitValue = src.InitValue,");
+                writer.WriteLine("MinValue = src.MinValue,");
+                writer.WriteLine("MaxValue = src.MaxValue,");
+                writer.WriteLine("UseMinValue = src.UseMinValue,");
+                writer.WriteLine("UseMaxValue = src.UseMaxValue");
+                writer.Indent--;
+                writer.WriteLine("};");
+                writer.Indent--;
+                writer.WriteLine("}");
+                writer.WriteLine("configModel.RegisterAttrSetDef(attrSet.ID, new AttrSetDef");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("AttrSetCode = attrSet.ID,");
+                writer.WriteLine("Attributes = attrs");
+                writer.Indent--;
+                writer.WriteLine("});");
+                writer.Indent--;
+                writer.WriteLine("}");
             }
             writer.Indent--;
             writer.WriteLine("}");

@@ -13,5 +13,5 @@ MonoBehaviour:
   m_Name: GASSetting
   m_EditorClassIdentifier: 
   TableOutputPath: Assets/DataGenerated/Luban/Json/GAS
-  ConfigProjectPath: Assets/Demo/Table
+  ConfigProjectPath: Config/exgas_config
   LubanConfigLoaderOutputPath: Assets/Demo/Emberheart/GAS/Generated/LubanConfigLoader.cs
