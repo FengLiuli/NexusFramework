@@ -174,7 +174,7 @@ namespace NexusFramework.GAS.Tests.Editor
         [Test]
         public void GetEffectConfig_UnknownId_ReturnsNull()
         {
-            var result = LubanConfigLoader.GetEffectConfig(99999);
+            var result = new LubanConfigLoader().GetEffectConfig(99999);
             Assert.That(result, Is.Null);
         }
 
@@ -184,7 +184,7 @@ namespace NexusFramework.GAS.Tests.Editor
         [Test]
         public void GetAbilityConfig_UnknownId_ReturnsNull()
         {
-            var result = LubanConfigLoader.GetAbilityConfig(99999);
+            var result = new LubanConfigLoader().GetAbilityConfig(99999);
             Assert.That(result, Is.Null);
         }
 
@@ -194,7 +194,7 @@ namespace NexusFramework.GAS.Tests.Editor
         [Test]
         public void GetCueConfig_UnknownId_ReturnsDefault()
         {
-            var result = LubanConfigLoader.GetCueConfig(99999);
+            var result = new LubanConfigLoader().GetCueConfig(99999);
             Assert.That(result, Is.Null);
         }
 
@@ -221,7 +221,7 @@ namespace NexusFramework.GAS.Tests.Editor
         public void GetTagHierarchyData_UsesIdProperty()
         {
             // 这个方法更偏向编译期验证——只要编译通过就正确
-            var result = LubanConfigLoader.GetTagHierarchyData();
+            var result = new LubanConfigLoader().GetTagHierarchyData();
             Assert.That(result.Tags, Is.Not.Null);
             // Tags 数组可能为空（无实际表格数据），但不抛异常
         }
@@ -250,7 +250,7 @@ namespace NexusFramework.GAS.Tests.Editor
 
 ### Luban JSON 测试数据文件
 
-为验证 GAS 模块功能完整性而创建的 10 个 Luban JSON 数据文件（`LubanConfigLoader.LoadTablesForEditor()` 可完整加载）：
+为验证 GAS 模块功能完整性而创建的 10 个 Luban JSON 数据文件（`new LubanConfigLoader().LoadTablesForEditor()` 可完整加载）：
 
 | # | 文件名 | 条目数 | 覆盖特性 |
 |---|--------|--------|---------|

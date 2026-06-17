@@ -9,6 +9,7 @@ using System.Linq;
 using cfg;
 using NexusFramework.GAS.ECS;
 using UnityEngine;
+using NexusFramework.GAS.Models;
 using XParam = NexusFramework.GAS.ECS.XParam;
 
 namespace NexusFramework.GAS.Config
@@ -23,14 +24,14 @@ namespace NexusFramework.GAS.Config
         void ICanInit.Init() => Initialized = true;
         void ICanInit.Deinit() => Initialized = false;
 
-        private static cfg.Tables _tables;
-        public static cfg.Tables Tables => _tables;
+        private cfg.Tables _tables;
+        public cfg.Tables Tables => _tables;
 
         /// <summary>
         /// 初始化并加载所有 Luban 表格。
         /// loader: Func<string, JSONNode>，接收表名返回 JSON 数据。
         /// </summary>
-        public static void LoadTables(Func<string, Luban.SimpleJSON.JSONNode> loader)
+        public void LoadTables(Func<string, Luban.SimpleJSON.JSONNode> loader)
         {
             if (_tables != null) return;
             _tables = new cfg.Tables(loader);
@@ -40,7 +41,7 @@ namespace NexusFramework.GAS.Config
         /// <summary>
         /// Editor 下从本地 JSON 文件加载表格（通过 GASSettingAsset.TableOutputPath）
         /// </summary>
-        public static void LoadTablesForEditor(string jsonDir)
+        public void LoadTablesForEditor(string jsonDir)
         {
             _tables = new cfg.Tables(file =>
                 Luban.SimpleJSON.JSON.Parse(System.IO.File.ReadAllText($"{jsonDir}/{file}.json")));
@@ -50,7 +51,7 @@ namespace NexusFramework.GAS.Config
         /// <summary>
         /// 初始化表格 + 注册配置查询委托。
         /// </summary>
-        public static void Init(Func<string, Luban.SimpleJSON.JSONNode> loader)
+        public void Init(Func<string, Luban.SimpleJSON.JSONNode> loader)
         {
             LoadTables(loader);
         }
@@ -113,8 +114,54 @@ namespace NexusFramework.GAS.Config
         }
 
 
+        /// <summary>
+        /// 将 _tables 中所有 ASC/AttrSet 配置批量注册到 ConfigModel，支持追加覆盖。
+        /// 多次调用、多数据源调用均可安全叠加。
+        /// </summary>
+        public void RegisterAllConfigTo(ConfigModel configModel)
+        {
+            if (_tables == null) return;
+
+            // 注册所有 ASC 配置
+            foreach (var asc in _tables.Tbasc.DataList)
+            {
+                configModel.RegisterAscConfig(asc.ID, new AscConfigData
+                {
+                    Level = asc.Level,
+                    Tags = asc.Tag,
+                    AttrSetIds = asc.AttrSet,
+                    AbilityIds = asc.Ability
+                });
+            }
+
+            // 注册所有属性集定义
+            foreach (var attrSet in _tables.TbattributeSet.DataList)
+            {
+                var attrs = new AttrInitDef[attrSet.Attribute.Length];
+                for (int i = 0; i < attrSet.Attribute.Length; i++)
+                {
+                    var src = attrSet.Attribute[i];
+                    attrs[i] = new AttrInitDef
+                    {
+                        Code = src.ID,
+                        InitValue = src.InitValue,
+                        MinValue = src.MinValue,
+                        MaxValue = src.MaxValue,
+                        UseMinValue = src.UseMinValue,
+                        UseMaxValue = src.UseMaxValue
+                    };
+                }
+                configModel.RegisterAttrSetDef(attrSet.ID, new AttrSetDef
+                {
+                    AttrSetCode = attrSet.ID,
+                    Attributes = attrs
+                });
+            }
+        }
+
+
         /// <summary>通过 ID 获取 GameplayEffect 配置</summary>
-        public static GameplayEffectComponentConfig[] GetEffectConfig(int id)
+        public GameplayEffectComponentConfig[] GetEffectConfig(int id)
         {
             if (_tables == null) return null;
 
@@ -321,7 +368,7 @@ namespace NexusFramework.GAS.Config
         }
 
         /// <summary>通过 ID 获取 Ability 配置</summary>
-        public static AbilityComponentConfig[] GetAbilityConfig(int id)
+        public AbilityComponentConfig[] GetAbilityConfig(int id)
         {
             if (_tables == null) return null;
 
@@ -429,7 +476,7 @@ namespace NexusFramework.GAS.Config
         }
 
         /// <summary>通过 ID 获取 GameplayCue 配置</summary>
-        public static ECS.GameplayCueConfig GetCueConfig(int id)
+        public ECS.GameplayCueConfig GetCueConfig(int id)
         {
             if (_tables == null) return null;
 
@@ -477,7 +524,7 @@ namespace NexusFramework.GAS.Config
         }
 
         /// <summary>通过 ID 获取 MMC 配置</summary>
-        public static ECS.MMCConfig GetMmcConfig(int id)
+        public ECS.MMCConfig GetMmcConfig(int id)
         {
             if (_tables == null) return new ECS.MMCConfig();
 
@@ -502,7 +549,7 @@ namespace NexusFramework.GAS.Config
         /// 通过 ASC ID 获取 AbilitySystemCell 配置
         /// 返回 (tags, attrSets, abilities, level) 元组
         /// </summary>
-        public static (int[] tags, object[] attrSetConfigs, AbilityComponentConfig[][] abilities, int level)
+        public (int[] tags, object[] attrSetConfigs, AbilityComponentConfig[][] abilities, int level)
             GetAscConfig(int id)
         {
             if (_tables == null) return (Array.Empty<int>(), Array.Empty<object>(), Array.Empty<AbilityComponentConfig[]>(), 0);
@@ -529,7 +576,7 @@ namespace NexusFramework.GAS.Config
         }
 
         /// <summary>加载标签层级数据</summary>
-        public static TagHierarchyData GetTagHierarchyData()
+        public TagHierarchyData GetTagHierarchyData()
         {
             if (_tables == null) return new TagHierarchyData { Tags = Array.Empty<TagNode>() };
 
@@ -558,7 +605,7 @@ namespace NexusFramework.GAS.Config
         // =========================================================
 
         /// <summary>创建 AbilityLogic 参数实例</summary>
-        private static XParam CreateAbilityLogicParam(cfg.AbilityLogicBase logicData)
+        private XParam CreateAbilityLogicParam(cfg.AbilityLogicBase logicData)
         {
             if (logicData == null) return null;
             var logicTypeName = logicData.GetType().Name;
@@ -576,7 +623,7 @@ namespace NexusFramework.GAS.Config
         }
 
         /// <summary>创建 Cue 参数实例</summary>
-        private static XParam CreateCueParam(cfg.GameplayCueBase cueData)
+        private XParam CreateCueParam(cfg.GameplayCueBase cueData)
         {
             if (cueData == null) return null;
             var cueTypeName = cueData.GetType().Name;
@@ -589,7 +636,7 @@ namespace NexusFramework.GAS.Config
         }
 
         /// <summary>创建 MMC 参数实例</summary>
-        private static XParam CreateMmcParam(cfg.ModMagnitudeCalculationBase mmcData)
+        private XParam CreateMmcParam(cfg.ModMagnitudeCalculationBase mmcData)
         {
             if (mmcData == null) return null;
             var mmcTypeName = mmcData.GetType().Name;
@@ -602,7 +649,7 @@ namespace NexusFramework.GAS.Config
         }
 
         /// <summary>创建 AbilityTask 参数实例</summary>
-        private static XParam CreateAbilityTaskParam(cfg.AbilityTaskBase taskData)
+        private XParam CreateAbilityTaskParam(cfg.AbilityTaskBase taskData)
         {
             if (taskData == null) return null;
             var taskTypeName = taskData.GetType().Name;

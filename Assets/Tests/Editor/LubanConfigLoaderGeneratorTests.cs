@@ -20,7 +20,7 @@ namespace NexusFramework.GAS.Tests.Editor
         public void Generator_MenuItem_Exists()
         {
             var type = typeof(LubanConfigLoaderGenerator);
-            var methods = type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            var methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             bool hasMenuItem = false;
             foreach (var m in methods)
             {
@@ -73,7 +73,7 @@ namespace NexusFramework.GAS.Tests.Editor
         [Test]
         public void GetEffectConfig_UnknownId_ReturnsNull()
         {
-            var result = LubanConfigLoader.GetEffectConfig(99999);
+            var result = new LubanConfigLoader().GetEffectConfig(99999);
             Assert.That(result, Is.Null);
         }
 
@@ -83,7 +83,7 @@ namespace NexusFramework.GAS.Tests.Editor
         [Test]
         public void GetAbilityConfig_UnknownId_ReturnsNull()
         {
-            var result = LubanConfigLoader.GetAbilityConfig(99999);
+            var result = new LubanConfigLoader().GetAbilityConfig(99999);
             Assert.That(result, Is.Null);
         }
 
@@ -93,7 +93,7 @@ namespace NexusFramework.GAS.Tests.Editor
         [Test]
         public void GetCueConfig_UnknownId_ReturnsDefault()
         {
-            var result = LubanConfigLoader.GetCueConfig(99999);
+            var result = new LubanConfigLoader().GetCueConfig(99999);
             Assert.That(result, Is.Null);
         }
 
@@ -105,7 +105,7 @@ namespace NexusFramework.GAS.Tests.Editor
         {
             var method = typeof(LubanConfigLoader).GetMethod(
                 "LoadTablesForEditor",
-                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
                 null,
                 new[] { typeof(string) },
                 null);
@@ -119,7 +119,7 @@ namespace NexusFramework.GAS.Tests.Editor
         [Test]
         public void GetTagHierarchyData_DoesNotThrow()
         {
-            Assert.DoesNotThrow(() => LubanConfigLoader.GetTagHierarchyData());
+            Assert.DoesNotThrow(() => new LubanConfigLoader().GetTagHierarchyData());
         }
     }
 }

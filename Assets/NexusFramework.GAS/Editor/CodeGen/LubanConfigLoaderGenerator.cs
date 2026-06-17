@@ -46,6 +46,7 @@ namespace NexusFramework.GAS.Editor
             writer.WriteLine("using cfg;");
             writer.WriteLine("using NexusFramework.GAS.ECS;");
             writer.WriteLine("using UnityEngine;");
+            writer.WriteLine("using NexusFramework.GAS.Models;");
             writer.WriteLine("using XParam = NexusFramework.GAS.ECS.XParam;");
             writer.WriteLine("");
         }
@@ -78,8 +79,8 @@ namespace NexusFramework.GAS.Editor
                 writer.WriteLine("");
 
                 // Tables 静态实例
-                writer.WriteLine("private static cfg.Tables _tables;");
-                writer.WriteLine("public static cfg.Tables Tables => _tables;");
+                writer.WriteLine("private cfg.Tables _tables;");
+                writer.WriteLine("public cfg.Tables Tables => _tables;");
                 writer.WriteLine("");
 
                 // 初始化方法
@@ -87,7 +88,7 @@ namespace NexusFramework.GAS.Editor
                 writer.WriteLine("/// 初始化并加载所有 Luban 表格。");
                 writer.WriteLine("/// loader: Func<string, JSONNode>，接收表名返回 JSON 数据。");
                 writer.WriteLine("/// </summary>");
-                writer.WriteLine("public static void LoadTables(Func<string, Luban.SimpleJSON.JSONNode> loader)");
+                writer.WriteLine("public void LoadTables(Func<string, Luban.SimpleJSON.JSONNode> loader)");
                 writer.WriteLine("{");
                 writer.Indent++;
                 writer.WriteLine("if (_tables != null) return;");
@@ -101,7 +102,7 @@ namespace NexusFramework.GAS.Editor
                 writer.WriteLine("/// <summary>");
                 writer.WriteLine("/// Editor 下从本地 JSON 文件加载表格（通过 GASSettingAsset.TableOutputPath）");
                 writer.WriteLine("/// </summary>");
-                writer.WriteLine("public static void LoadTablesForEditor(string jsonDir)");
+                writer.WriteLine("public void LoadTablesForEditor(string jsonDir)");
                 writer.WriteLine("{");
                 writer.Indent++;
                 writer.WriteLine("_tables = new cfg.Tables(file =>");
@@ -115,7 +116,7 @@ namespace NexusFramework.GAS.Editor
                 writer.WriteLine("/// <summary>");
                 writer.WriteLine("/// 初始化表格 + 注册配置查询委托。");
                 writer.WriteLine("/// </summary>");
-                writer.WriteLine("public static void Init(Func<string, Luban.SimpleJSON.JSONNode> loader)");
+                writer.WriteLine("public void Init(Func<string, Luban.SimpleJSON.JSONNode> loader)");
                 writer.WriteLine("{");
                 writer.Indent++;
                 writer.WriteLine("LoadTables(loader);");
@@ -165,7 +166,7 @@ namespace NexusFramework.GAS.Editor
         private static void WriteEffectConfigMethod(IndentedWriter writer)
         {
             writer.WriteLine("/// <summary>通过 ID 获取 GameplayEffect 配置</summary>");
-            writer.WriteLine("public static GameplayEffectComponentConfig[] GetEffectConfig(int id)");
+            writer.WriteLine("public GameplayEffectComponentConfig[] GetEffectConfig(int id)");
             writer.WriteLine("{");
             writer.Indent++;
             {
@@ -411,7 +412,7 @@ namespace NexusFramework.GAS.Editor
         private static void WriteAbilityConfigMethod(IndentedWriter writer)
         {
             writer.WriteLine("/// <summary>通过 ID 获取 Ability 配置</summary>");
-            writer.WriteLine("public static AbilityComponentConfig[] GetAbilityConfig(int id)");
+            writer.WriteLine("public AbilityComponentConfig[] GetAbilityConfig(int id)");
             writer.WriteLine("{");
             writer.Indent++;
             {
@@ -570,7 +571,7 @@ namespace NexusFramework.GAS.Editor
         private static void WriteCueConfigMethod(IndentedWriter writer)
         {
             writer.WriteLine("/// <summary>通过 ID 获取 GameplayCue 配置</summary>");
-            writer.WriteLine("public static ECS.GameplayCueConfig GetCueConfig(int id)");
+            writer.WriteLine("public ECS.GameplayCueConfig GetCueConfig(int id)");
             writer.WriteLine("{");
             writer.Indent++;
             {
@@ -639,7 +640,7 @@ namespace NexusFramework.GAS.Editor
         private static void WriteMmcConfigMethod(IndentedWriter writer)
         {
             writer.WriteLine("/// <summary>通过 ID 获取 MMC 配置</summary>");
-            writer.WriteLine("public static ECS.MMCConfig GetMmcConfig(int id)");
+            writer.WriteLine("public ECS.MMCConfig GetMmcConfig(int id)");
             writer.WriteLine("{");
             writer.Indent++;
             {
@@ -678,7 +679,7 @@ namespace NexusFramework.GAS.Editor
             writer.WriteLine("/// 通过 ASC ID 获取 AbilitySystemCell 配置");
             writer.WriteLine("/// 返回 (tags, attrSets, abilities, level) 元组");
             writer.WriteLine("/// </summary>");
-            writer.WriteLine("public static (int[] tags, object[] attrSetConfigs, AbilityComponentConfig[][] abilities, int level)");
+            writer.WriteLine("public (int[] tags, object[] attrSetConfigs, AbilityComponentConfig[][] abilities, int level)");
             writer.WriteLine("    GetAscConfig(int id)");
             writer.WriteLine("{");
             writer.Indent++;
@@ -718,7 +719,7 @@ namespace NexusFramework.GAS.Editor
         private static void WriteTagHierarchyMethod(IndentedWriter writer)
         {
             writer.WriteLine("/// <summary>加载标签层级数据</summary>");
-            writer.WriteLine("public static TagHierarchyData GetTagHierarchyData()");
+            writer.WriteLine("public TagHierarchyData GetTagHierarchyData()");
             writer.WriteLine("{");
             writer.Indent++;
             {
@@ -756,7 +757,7 @@ namespace NexusFramework.GAS.Editor
         private static void WriteTimelineAbilityMethod(IndentedWriter writer)
         {
             writer.WriteLine("/// <summary>通过 ID 获取 TimelineAbility 参数（暂未实现）</summary>");
-            writer.WriteLine("public static XParamTimeline GetTimelineAbilityParam(int id)");
+            writer.WriteLine("public XParamTimeline GetTimelineAbilityParam(int id)");
             writer.WriteLine("{");
             writer.Indent++;
             {
@@ -833,13 +834,13 @@ namespace NexusFramework.GAS.Editor
             writer.WriteLine("");
         }
         
-                private static void WriteRegisterAllConfigToMethod(IndentedWriter writer)
+        private static void WriteRegisterAllConfigToMethod(IndentedWriter writer)
         {
             writer.WriteLine("/// <summary>");
             writer.WriteLine("/// 将 _tables 中所有 ASC/AttrSet 配置批量注册到 ConfigModel，支持追加覆盖。");
             writer.WriteLine("/// 多次调用、多数据源调用均可安全叠加。");
             writer.WriteLine("/// </summary>");
-            writer.WriteLine("public static void RegisterAllConfigTo(ConfigModel configModel)");
+            writer.WriteLine("public void RegisterAllConfigTo(ConfigModel configModel)");
             writer.WriteLine("{");
             writer.Indent++;
             {
@@ -910,7 +911,7 @@ namespace NexusFramework.GAS.Editor
 
             // CreateAbilityLogicParam
             writer.WriteLine("/// <summary>创建 AbilityLogic 参数实例</summary>");
-            writer.WriteLine("private static XParam CreateAbilityLogicParam(cfg.AbilityLogicBase logicData)");
+            writer.WriteLine("private XParam CreateAbilityLogicParam(cfg.AbilityLogicBase logicData)");
             writer.WriteLine("{");
             writer.Indent++;
             {
@@ -936,7 +937,7 @@ namespace NexusFramework.GAS.Editor
 
             // CreateCueParam
             writer.WriteLine("/// <summary>创建 Cue 参数实例</summary>");
-            writer.WriteLine("private static XParam CreateCueParam(cfg.GameplayCueBase cueData)");
+            writer.WriteLine("private XParam CreateCueParam(cfg.GameplayCueBase cueData)");
             writer.WriteLine("{");
             writer.Indent++;
             {
@@ -956,7 +957,7 @@ namespace NexusFramework.GAS.Editor
 
             // CreateMmcParam
             writer.WriteLine("/// <summary>创建 MMC 参数实例</summary>");
-            writer.WriteLine("private static XParam CreateMmcParam(cfg.ModMagnitudeCalculationBase mmcData)");
+            writer.WriteLine("private XParam CreateMmcParam(cfg.ModMagnitudeCalculationBase mmcData)");
             writer.WriteLine("{");
             writer.Indent++;
             {
@@ -976,7 +977,7 @@ namespace NexusFramework.GAS.Editor
 
             // CreateAbilityTaskParam
             writer.WriteLine("/// <summary>创建 AbilityTask 参数实例</summary>");
-            writer.WriteLine("private static XParam CreateAbilityTaskParam(cfg.AbilityTaskBase taskData)");
+            writer.WriteLine("private XParam CreateAbilityTaskParam(cfg.AbilityTaskBase taskData)");
             writer.WriteLine("{");
             writer.Indent++;
             {
