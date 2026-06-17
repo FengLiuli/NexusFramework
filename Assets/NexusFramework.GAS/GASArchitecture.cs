@@ -12,6 +12,8 @@ namespace NexusFramework.GAS
 {
     public abstract class GASArchitecture : Architecture
     {
+        protected GASArchitecture() : base() { ArchitectureId = 0; }
+        protected GASArchitecture(byte id) : base(id) => ArchitectureId = id;
         public override string ArchitectureType => "GAS";
 
         protected virtual IConfigLoader CreateConfigLoader() => new JsonConfigLoader();

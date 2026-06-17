@@ -5,6 +5,9 @@ namespace NexusFramework.GAS.Tests
 {
     public class TestArchitecture : GASArchitecture
     {
+        public TestArchitecture() : base() { ArchitectureId = 0; }
+        public TestArchitecture(byte id) : base(id) => ArchitectureId = id;
+
         protected override IConfigLoader CreateConfigLoader()
         {
             return new MockConfigLoader();
