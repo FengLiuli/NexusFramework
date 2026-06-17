@@ -1,8 +1,8 @@
 ---
 task: T003
-task_status: 进行中（测试数据就绪，MAP 用例待执行）
+task_status: 进行中（实现运行时 ASC 创建管道）
 created: 2026-06-14
-updated: 2026-06-14
+updated: 2026-06-16
 sessions: 1
 ---
 
@@ -64,3 +64,43 @@ sessions: 1
 1. **Cost/CdEffect 引用**：使用 `Cost=8` 引用 `GE_CostMana`（ID=8），`CdEffect=1` 引用 `GE_InstantDamage`（ID=1）。注意 Ability 的 Cost 和 CdEffect 字段是 int 而非 Effect ID 列表，因此表现为消耗效果和冷却效果的 ID 引用。
 2. **标签 ID 分配**：1-10 跨多种语义域（Effect.Buff=1, Effect.Debuff=2, Effect.Debuff.Fire=3, Ability.Fire=4, State.Stun=5, Damage.Physical=6, Damage.Magic=7, Gameplay.Immune=8, Effect.Buff.AttackUp=9, Effect.Debuff.DOT=10），避免重叠的 ID。
 3. **Timeline 不使用 TimelineAbilityLogic**：TimelineAbility 有单独的表格 `tbtimelineability`，不通过 AbilityLogic 多态体系。
+
+---
+
+## [2026-06-16] 会话 #2 — 实现运行时从 Luban 配置创建 ASC 对象
+
+### 背景
+
+用户提出"运行时新建 ASC 对象"的需求。现有 `CreateGASCarrier(type, go)` 只搭 ECS 骨架，等级/标签/属性集/技能需要调用方手动填充。通过讨论确定走 `IConfigLoader` 标准管道。
+
+### 已完成工作
+
+#### 1. 文档链
+- 创建需求文档 `docs/requirements/R004-runtime-asc-creation-from-luban.md`（审核通过）
+- 更新设计文档 `docs/design/D003-luban-config-bridge.md`（新增"运行时 ASC 创建"章节）
+- 更新编码文档 `docs/code/gas-config.md`（新增 ASC 运行时创建章节）
+- 更新测试文档 `docs/tests/T003-luban-config-loader-generator.md`（新增 ASC 配置加载 / 运行时创建测试组）
+
+#### 2. 代码实现
+
+| 文件 | 改动 |
+|------|------|
+| `Config/IConfigLoader.cs` | + `AscConfigData` / `AttrSetDef` / `AttrInitDef` 三个 struct；+ `GetAscConfig` / `GetAttrSetDef` 接口方法 |
+| `Models/ConfigModel.cs` | + ASC/属性集缓存的 `Register*` / `Get*` / `Load*` 方法 |
+| `GASArchitecture.cs` | + `CreateGASCarrier(type, ascId, go)` 重载：自动完成等级/标签/属性集初始化/技能授予 |
+| `Config/JsonConfigLoader.cs` | + `GetAscConfig` / `GetAttrSetDef` 占位实现（返回 null） |
+| `Editor/CodeGen/LubanConfigLoaderGenerator.cs` | + `WriteAscConfigMethod` / `WriteAttrSetDefMethod` 生成显式接口实现 |
+
+#### 3. 关键设计决策
+
+1. **走 `IConfigLoader` 标准管道** — ASC 配置与 Effect/Ability 配置走同一条路，不引入额外耦合
+2. **保留 `ConfigModel` 缓存层** — 保持一致性，为 JsonConfigLoader 等非全量加载场景预留扩展点
+3. **直接使用 Luban 的 `AttributeInSet` 数据** — 属性初始值/Clamp 已在 `cfg.AttributeInSet` 中定义，无需另建类型
+4. **`CreateGASCarrier(type, ascId, go)` 重载而非默认参数** — 避免 `go=null` 时误传 ascId
+
+### 待做事项
+
+- **Unity Editor 编译验证**：确认 GASArchitecture.cs、IConfigLoader.cs、ConfigModel.cs 编译通过
+- **重新生成 LubanConfigLoader**：在 Editor 中执行 `NF.GAS/Generate/LubanConfigLoader` 确认新方法正确生成
+- **验证生成器输出编译**：确认 LubanConfigLoader.cs 编译通过
+- **执行 MAP-08 ~ MAP-11 测试用例**：验证 ASC 配置加载和运行时创建的正确性

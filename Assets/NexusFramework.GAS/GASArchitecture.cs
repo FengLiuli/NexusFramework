@@ -5,6 +5,7 @@ using NexusFramework.GAS.ECS;
 using NexusFramework.GAS.Services;
 using NexusFramework.GAS.Models;
 using Unity.Entities;
+using Unity.Collections;
 using UnityEngine;
 
 namespace NexusFramework.GAS
@@ -41,6 +42,76 @@ namespace NexusFramework.GAS
 
             if (go != null)
                 model.BindGameObject(entity, go);
+
+            return carrierId;
+        }
+
+        /// <summary>
+        /// 创建 Carrier + ECS Entity，并从 ConfigModel 读取 ASC 配置自动初始化。
+        /// 等级、标签、属性集、技能授予一步完成。
+        /// 当 ascId 不存在时，返回骨架 Entity（无标签/属性/技能），不抛异常。
+        /// </summary>
+        public CarrierId CreateGASCarrier(string typeName, int ascId, GameObject go = null)
+        {
+            // 1. 搭骨架（复用基础重载）
+            var carrierId = CreateGASCarrier(typeName, go);
+            var entity = this.GetModel<GASEntityMapModel>().GetGASEntity(carrierId);
+
+            // 2. 读取 ASC 配置
+            var configModel = this.GetModel<ConfigModel>();
+            var ascConfig = configModel.GetAscConfig(ascId);
+            if (ascConfig == null) return carrierId;
+            var ac = ascConfig.Value;
+
+            var em = this.GetService<WorldService>().EntityManager;
+
+            // 3. 等级
+            em.SetComponentData(entity, new CAscBasicData { Level = ac.Level });
+
+            // 4. 标签
+            if (ac.Tags is { Length: > 0 })
+            {
+                var tagBuf = em.GetBuffer<BFixedTag>(entity);
+                foreach (var tag in ac.Tags)
+                    tagBuf.Add(new BFixedTag { tag = tag });
+            }
+
+            // 5. 属性集
+            if (ac.AttrSetIds is { Length: > 0 })
+            {
+                var attrSetBuf = em.GetBuffer<BEAttrSet>(entity);
+                foreach (var setId in ac.AttrSetIds)
+                {
+                    var setDef = configModel.GetAttrSetDef(setId);
+                    if (setDef == null) continue;
+
+                    var attrs = new NativeArray<CAttributeData>(setDef.Value.Attributes.Length, Allocator.Persistent);
+                    for (int i = 0; i < setDef.Value.Attributes.Length; i++)
+                    {
+                        var src = setDef.Value.Attributes[i];
+                        attrs[i] = new CAttributeData
+                        {
+                            Code = src.Code,
+                            BaseValue = src.InitValue,
+                            CurrentValue = src.InitValue,
+                            IsClampMin = src.UseMinValue,
+                            IsClampMax = src.UseMaxValue,
+                            MinValue = src.MinValue,
+                            MaxValue = src.MaxValue,
+                            Dirty = false
+                        };
+                    }
+                    attrSetBuf.Add(new BEAttrSet { Code = setId, Attributes = attrs });
+                }
+            }
+
+            // 6. 技能授予
+            if (ac.AbilityIds is { Length: > 0 })
+            {
+                var abilityService = this.GetService<AbilityService>();
+                foreach (var abilityId in ac.AbilityIds)
+                    abilityService.GrantAbility(carrierId, abilityId, this);
+            }
 
             return carrierId;
         }
