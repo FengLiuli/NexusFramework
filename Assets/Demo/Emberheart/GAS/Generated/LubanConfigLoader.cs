@@ -115,7 +115,7 @@ namespace NexusFramework.GAS.Config
 
 
         /// <summary>
-        /// 将 _tables 中所有 ASC/AttrSet 配置批量注册到 ConfigModel，支持追加覆盖。
+        /// 将 _tables 中所有配置批量注册到 ConfigModel，支持追加覆盖。
         /// 多次调用、多数据源调用均可安全叠加。
         /// </summary>
         public void RegisterAllConfigTo(ConfigModel configModel)
@@ -157,6 +157,77 @@ namespace NexusFramework.GAS.Config
                     Attributes = attrs
                 });
             }
+
+            // 注册所有 GameplayEffect 配置
+            foreach (var effect in _tables.TbgameplayEffect.DataList)
+            {
+                var config = GetEffectConfig(effect.ID);
+                if (config != null)
+                    configModel.RegisterEffect(effect.ID, config);
+            }
+
+            // 注册所有 Ability 配置
+            foreach (var ability in _tables.Tbability.DataList)
+            {
+                var config = GetAbilityConfig(ability.ID);
+                if (config != null && config.Length > 0)
+                    configModel.RegisterAbility(ability.ID, config);
+            }
+
+            // 注册所有 GameplayCue 配置（数组下标 = ID）
+            {
+                int maxId = 0;
+                foreach (var cue in _tables.TbgameplayCue.DataList)
+                    if (cue.ID > maxId) maxId = cue.ID;
+                var cues = new GameplayCueConfig[maxId + 1];
+                foreach (var data in _tables.TbgameplayCue.DataList)
+                {
+                    var cueTypeName = data.CueLogic.GetType().Name;
+                    var param = CreateCueParam(data.CueLogic);
+
+                    int[] FlattenTags(cfg.TagRequirementData? req)
+                    {
+                        if (req == null) return Array.Empty<int>();
+                        var r = req.Value;
+                        var list = new List<int>();
+                        if (r.All is { Count: > 0 }) list.AddRange(r.All.Where(x => x > 0));
+                        if (r.Any is { Count: > 0 }) list.AddRange(r.Any.Where(x => x > 0));
+                        if (r.None is { Count: > 0 }) list.AddRange(r.None.Where(x => x > 0));
+                        return list.ToArray();
+                    }
+
+                    cues[data.ID] = new GameplayCueConfig
+                    {
+                        CueType = cueTypeName,
+                        Param = param,
+                        RequiredTags = FlattenTags(data.RequiredTag),
+                        ImmunityTags = FlattenTags(data.ImmunityTag)
+                    };
+                }
+                configModel.RegisterCues(cues);
+            }
+
+            // 注册所有 MMC 配置（数组下标 = ID）
+            {
+                int maxId = 0;
+                foreach (var mmc in _tables.Tbmmc.DataList)
+                    if (mmc.ID > maxId) maxId = mmc.ID;
+                var mmcs = new MMCConfig[maxId + 1];
+                foreach (var data in _tables.Tbmmc.DataList)
+                {
+                    var mmcTypeName = data.MmcLogic.GetType().Name;
+                    var param = CreateMmcParam(data.MmcLogic);
+                    mmcs[data.ID] = new MMCConfig
+                    {
+                        MmcType = mmcTypeName,
+                        Param = param
+                    };
+                }
+                configModel.RegisterMmcs(mmcs);
+            }
+
+            // 注册标签层级数据
+            configModel.RegisterTagHierarchy(GetTagHierarchyData());
         }
 
 
