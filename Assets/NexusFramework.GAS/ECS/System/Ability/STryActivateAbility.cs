@@ -20,6 +20,10 @@ namespace NexusFramework.GAS.ECS
             var ecb = new EntityCommandBuffer(Allocator.Temp);
             var tagMap = SystemAPI.GetSingleton<SingletonGameplayTagMap>();
             var globalTimer = SystemAPI.GetSingletonRW<GlobalTimer>();
+            // 缓存：ECB.Playback 后 globalTimer handle 会失效
+            var cachedTimer = globalTimer.ValueRO;
+
+            var pendingActivates = new NativeList<Entity>(Allocator.Temp);
 
             foreach (var (_, basicInfo, ability) in SystemAPI
                          .Query<RefRO<CAbilityInTryActivate>, RefRO<CAbilityBaseInfo>>().WithEntityAccess())
@@ -37,19 +41,28 @@ namespace NexusFramework.GAS.ECS
                     }
 
                     ecb.AddComponent(ability, new CAbilityActive());
-                    var abilityLogic = state.EntityManager.GetComponentData<MCAbilityLogic>(ability);
-                    abilityLogic.logic.ActivateAbility(globalTimer.ValueRO);
-
                     CancelAbilitiesWithTags(state.EntityManager, tagMap, ecb, ability);
                     GASInternalBridge.Enqueue(new AbilityActivatedEvent { Owner = owner, AbilityCode = basicInfo.ValueRO.Code });
+                    pendingActivates.Add(ability);
                 }
-
 
                 ecb.RemoveComponent<CAbilityInTryActivate>(ability);
             }
 
             ecb.Playback(state.EntityManager);
+
+            // 使用缓存的 timer 值执行激活（ECB 播放后 handle 已失效）
+            foreach (var ability in pendingActivates)
+            {
+                if (state.EntityManager.HasComponent<MCAbilityLogic>(ability))
+                {
+                    var abilityLogic = state.EntityManager.GetComponentData<MCAbilityLogic>(ability);
+                    abilityLogic.logic?.ActivateAbility(cachedTimer);
+                }
+            }
+
             ecb.Dispose();
+            pendingActivates.Dispose();
         }
 
         [BurstCompile]

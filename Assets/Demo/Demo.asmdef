@@ -4,7 +4,11 @@
     "references": [
         "NexusFramework",
         "NexusFramework.GAS",
-        "Luban.Runtime"
+        "Luban.Runtime",
+        "Unity.Entities",
+        "Unity.Collections",
+        "Unity.Mathematics",
+        "Unity.Burst"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

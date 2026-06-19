@@ -1,4 +1,4 @@
-﻿using Unity.Burst;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 
@@ -15,13 +15,14 @@ namespace NexusFramework.GAS.ECS
             state.RequireForUpdate<CAbilityInTryEnd>();
         }
 
-        //[BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             var ecb = new EntityCommandBuffer(Allocator.Temp);
             var globalTimer = SystemAPI.GetSingletonRW<GlobalTimer>();
+            var cachedTimer = globalTimer.ValueRO;
             var tagRemovalList = new NativeList<TagRemoval>(Allocator.Temp);
-            
+            var pendingEnds = new NativeList<Entity>(Allocator.Temp);
+
             foreach (var (_, baseInfo, ability) in SystemAPI.Query<RefRO<CAbilityInTryEnd>, RefRO<CAbilityBaseInfo>>()
                          .WithEntityAccess())
             {
@@ -30,8 +31,7 @@ namespace NexusFramework.GAS.ECS
                 {
                     ecb.RemoveComponent<CAbilityActive>(ability);
                     CollectDynamicTagRemovals(state.EntityManager, ability, ref tagRemovalList);
-                    var abilityLogic = state.EntityManager.GetComponentData<MCAbilityLogic>(ability);
-                    abilityLogic.logic.EndAbility(globalTimer.ValueRO);
+                    pendingEnds.Add(ability);
                 }
 
                 ecb.RemoveComponent<CAbilityInTryEnd>(ability);
@@ -46,7 +46,19 @@ namespace NexusFramework.GAS.ECS
 
             tagRemovalList.Dispose();
             ecb.Playback(state.EntityManager);
+
+            // ECB 播放后再执行 AbilityLogic.EndAbility（可能包含 Entity 创建等结构性变更）
+            foreach (var ability in pendingEnds)
+            {
+                if (state.EntityManager.HasComponent<MCAbilityLogic>(ability))
+                {
+                    var abilityLogic = state.EntityManager.GetComponentData<MCAbilityLogic>(ability);
+                    abilityLogic.logic?.EndAbility(cachedTimer);
+                }
+            }
+
             ecb.Dispose();
+            pendingEnds.Dispose();
         }
 
         struct TagRemoval

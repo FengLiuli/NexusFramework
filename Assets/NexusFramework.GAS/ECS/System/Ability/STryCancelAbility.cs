@@ -19,7 +19,9 @@ namespace NexusFramework.GAS.ECS
         {
             var ecb = new EntityCommandBuffer(Allocator.Temp);
             var globalTimer = SystemAPI.GetSingletonRW<GlobalTimer>();
+            var cachedTimer = globalTimer.ValueRO;
             var tagRemovalList = new NativeList<TagRemoval>(Allocator.Temp);
+            var pendingCancels = new NativeList<Entity>(Allocator.Temp);
 
             foreach (var (_,ability) in SystemAPI.Query<RefRO<CAbilityInTryCancel>>().WithEntityAccess())
             {
@@ -28,8 +30,7 @@ namespace NexusFramework.GAS.ECS
                 {
                     ecb.RemoveComponent<CAbilityActive>(ability);
                     CollectDynamicTagRemovals(state.EntityManager, ability, ref tagRemovalList);
-                    var abilityLogic = state.EntityManager.GetComponentData<MCAbilityLogic>(ability);
-                    abilityLogic.logic.CancelAbility(globalTimer.ValueRO);
+                    pendingCancels.Add(ability);
                 }
                 ecb.RemoveComponent<CAbilityInTryCancel>(ability);
             }
@@ -43,7 +44,19 @@ namespace NexusFramework.GAS.ECS
 
             tagRemovalList.Dispose();
             ecb.Playback(state.EntityManager);
+
+            // 在 Query 迭代和 ECB 播放完成后再执行 AbilityLogic（可能有结构性变更）
+            foreach (var ability in pendingCancels)
+            {
+                if (state.EntityManager.HasComponent<MCAbilityLogic>(ability))
+                {
+                    var abilityLogic = state.EntityManager.GetComponentData<MCAbilityLogic>(ability);
+                    abilityLogic.logic?.CancelAbility(cachedTimer);
+                }
+            }
+
             ecb.Dispose();
+            pendingCancels.Dispose();
         }
 
         struct TagRemoval
