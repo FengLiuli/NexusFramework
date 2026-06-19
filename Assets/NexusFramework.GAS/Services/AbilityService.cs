@@ -56,6 +56,8 @@ namespace NexusFramework.GAS.Services
 
             var em = this.GetService<WorldService>().EntityManager;
             AbilityComponentConfig.SetEntityManager(em);
+            AbilityLogicFactory.SetEntityManager(em);
+            AbilityLogicFactory.SetArchitecture(architecture);
 
             var configs = this.GetModel<ConfigModel>().GetAbilityConfig(abilityCode);
             if (configs == null) return;

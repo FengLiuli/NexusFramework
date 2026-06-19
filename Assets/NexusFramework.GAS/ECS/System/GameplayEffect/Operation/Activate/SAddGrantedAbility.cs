@@ -83,6 +83,7 @@ namespace NexusFramework.GAS.ECS
                 var abilityEntity = ecb.CreateEntity();
                 ecb.SetName(abilityEntity, "GrantedAbility");
                 GameplayEffectComponentConfig.SetEntityManager(state.EntityManager);
+                AbilityLogicFactory.SetEntityManager(state.EntityManager);
                 foreach (var config in d.AbilityConfigs)
                     config.LoadToGameplayAbilityEntity(abilityEntity);
 
