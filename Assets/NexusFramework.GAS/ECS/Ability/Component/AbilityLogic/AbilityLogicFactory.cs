@@ -51,9 +51,14 @@ namespace NexusFramework.GAS.ECS
                 // 使得 ICanGetService / ICanGetModel 扩展方法正常工作
                 if (_architecture != null)
                 {
-                    var archCtor = type.GetConstructor(new[] { typeof(Entity), typeof(IArchitecture) });
-                    if (archCtor != null)
+                    try
+                    {
                         return (AbilityLogicBase)Activator.CreateInstance(type, ability, _architecture);
+                    }
+                    catch (MissingMethodException)
+                    {
+                        // 找不到 (Entity, IArchitecture) 构造函数时回退
+                    }
                 }
 
                 // 回退到 (Entity, EntityManager) 构造函数（兼容 ECS 路径）
