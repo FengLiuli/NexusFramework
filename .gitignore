@@ -77,3 +77,4 @@ crashlytics-build.properties
 *.wktree
 *.md
 *.md
+/.claude
