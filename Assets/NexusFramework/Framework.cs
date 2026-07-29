@@ -208,6 +208,20 @@ namespace NexusFramework
     {
     }
 
+    /// <summary>
+    ///     可以查询 Carrier Tag（只读）。
+    /// </summary>
+    public interface ICanGetCarrierTag : IBelongToArchitecture, ICanGetCarrier
+    {
+    }
+
+    /// <summary>
+    ///     可以修改 Carrier Tag（读写）。
+    /// </summary>
+    public interface ICanManageCarrierTag : IBelongToArchitecture, ICanGetCarrierTag
+    {
+    }
+
     #endregion
 
     #region Extension Methods - 为小接口提供扩展方法
@@ -461,6 +475,63 @@ namespace NexusFramework
         public static IEnumerable<Type> GetTraitTypes(this ICanManageCarrierTrait self, CarrierId carrierId)
         {
             return self.Architecture.GetCarrierManager().GetTraitTypes(carrierId);
+        }
+    }
+
+    /// <summary>
+    ///     ICanGetCarrierTag扩展方法 - Tag 只读查询
+    /// </summary>
+    public static class CanGetCarrierTagExtension
+    {
+        public static bool HasExactTag(this ICanGetCarrierTag self, CarrierId carrierId, string key)
+        {
+            return self.Architecture.GetCarrierManager().HasExactTag(carrierId, key);
+        }
+
+        public static bool HasTag(this ICanGetCarrierTag self, CarrierId carrierId, string key)
+        {
+            return self.Architecture.GetCarrierManager().HasTag(carrierId, key);
+        }
+
+        public static bool HasAllTags(this ICanGetCarrierTag self, CarrierId carrierId, IEnumerable<string> keys)
+        {
+            return self.Architecture.GetCarrierManager().HasAllTags(carrierId, keys);
+        }
+
+        public static bool HasAnyTag(this ICanGetCarrierTag self, CarrierId carrierId, IEnumerable<string> keys)
+        {
+            return self.Architecture.GetCarrierManager().HasAnyTag(carrierId, keys);
+        }
+
+        public static bool HasNoneTags(this ICanGetCarrierTag self, CarrierId carrierId, IEnumerable<string> keys)
+        {
+            return self.Architecture.GetCarrierManager().HasNoneTags(carrierId, keys);
+        }
+
+        public static IEnumerable<CarrierId> FindCarriersWithTag(this ICanGetCarrierTag self, string key)
+        {
+            return self.Architecture.GetCarrierManager().FindCarriersWithTag(key);
+        }
+
+        public static IEnumerable<CarrierId> FindCarriersWithTags(this ICanGetCarrierTag self, TagQuery query)
+        {
+            return self.Architecture.GetCarrierManager().FindCarriersWithTags(query);
+        }
+    }
+
+    /// <summary>
+    ///     ICanManageCarrierTag扩展方法 - Tag 写入
+    /// </summary>
+    public static class CanManageCarrierTagExtension
+    {
+        public static bool AddTag(this ICanManageCarrierTag self, CarrierId carrierId, string key)
+        {
+            return self.Architecture.GetCarrierManager().AddTag(carrierId, key);
+        }
+
+        public static bool RemoveTag(this ICanManageCarrierTag self, CarrierId carrierId, string key)
+        {
+            return self.Architecture.GetCarrierManager().RemoveTag(carrierId, key);
         }
     }
 
@@ -796,7 +867,8 @@ namespace NexusFramework
     /// </summary>
     public interface IController : IBelongToArchitecture, ICanSendCommand, ICanGetService, ICanGetModel,
         ICanSendEvent, ICanRegisterEvent, ICanSendQuery, ICanGetUtility,
-        ICanGetCarrier, ICanCreateCarrier, ICanManageCarrierTrait
+        ICanGetCarrier, ICanCreateCarrier, ICanManageCarrierTrait,
+        ICanGetCarrierTag, ICanManageCarrierTag
     {
     }
 
@@ -807,15 +879,18 @@ namespace NexusFramework
     /// </summary>
     public interface IService : IBelongToArchitecture,  ICanGetModel, ICanGetUtility,
         ICanRegisterEvent, ICanSendEvent, ICanGetService, ICanInit,
-        ICanGetCarrier, ICanCreateCarrier, ICanManageCarrierTrait
+        ICanGetCarrier, ICanCreateCarrier, ICanManageCarrierTrait,
+        ICanGetCarrierTag, ICanManageCarrierTag
     {
     }
 
     /// <summary>
     ///     Model接口 - 数据层
     ///     只能获取Utility，发送Event，可以初始化
+    ///     具备 Tag 只读查询能力
     /// </summary>
-    public interface IModel : IBelongToArchitecture,  ICanGetUtility, ICanSendEvent, ICanInit
+    public interface IModel : IBelongToArchitecture,  ICanGetUtility, ICanSendEvent, ICanInit,
+        ICanGetCarrierTag
     {
     }
 
@@ -833,7 +908,8 @@ namespace NexusFramework
     /// </summary>
     public interface ICommand : IBelongToArchitecture,  ICanGetService, ICanGetModel, ICanGetUtility,
         ICanSendEvent, ICanSendCommand, ICanSendQuery,
-        ICanGetCarrier, ICanCreateCarrier, ICanManageCarrierTrait
+        ICanGetCarrier, ICanCreateCarrier, ICanManageCarrierTrait,
+        ICanGetCarrierTag, ICanManageCarrierTag
     {
         void Execute();
     }
@@ -845,7 +921,8 @@ namespace NexusFramework
     /// </summary>
     public interface ICommand<TResult> : IBelongToArchitecture,  ICanGetService, ICanGetModel,
         ICanGetUtility, ICanSendEvent, ICanSendCommand, ICanSendQuery,
-        ICanGetCarrier, ICanCreateCarrier, ICanManageCarrierTrait
+        ICanGetCarrier, ICanCreateCarrier, ICanManageCarrierTrait,
+        ICanGetCarrierTag, ICanManageCarrierTag
     {
         TResult Execute();
     }
@@ -854,9 +931,11 @@ namespace NexusFramework
     ///     Query接口 - 查询
     ///     可以获取Model、Service，可以发送Query
     ///     只能获取载体和查询载体特征（只读访问，不能创建或修改）
+    ///     具备 Tag 只读查询能力
     /// </summary>
     public interface IQuery<TResult> : IBelongToArchitecture,  ICanGetModel, ICanGetService,
-        ICanSendQuery, ICanGetUtility, ICanGetCarrier
+        ICanSendQuery, ICanGetUtility, ICanGetCarrier,
+        ICanGetCarrierTag
     {
         TResult Do();
     }

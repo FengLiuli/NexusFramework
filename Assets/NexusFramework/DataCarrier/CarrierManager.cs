@@ -44,6 +44,17 @@ namespace NexusFramework.DataCarrier
         IEnumerable<CarrierId> FindCarriersWithTrait<T>() where T : class, IDataTrait;
         IEnumerable<CarrierId> FindCarriersWithTraits(params Type[] traitTypes);
 
+        // Tag 管理
+        bool AddTag(CarrierId carrierId, string key);
+        bool RemoveTag(CarrierId carrierId, string key);
+        bool HasExactTag(CarrierId carrierId, string key);
+        bool HasTag(CarrierId carrierId, string key);
+        bool HasAllTags(CarrierId carrierId, IEnumerable<string> keys);
+        bool HasAnyTag(CarrierId carrierId, IEnumerable<string> keys);
+        bool HasNoneTags(CarrierId carrierId, IEnumerable<string> keys);
+        IEnumerable<CarrierId> FindCarriersWithTag(string key);
+        IEnumerable<CarrierId> FindCarriersWithTags(TagQuery query);
+
         // 序列化
         string SerializeCarrier(CarrierId carrierId);
         CarrierId DeserializeCarrier(string json);
@@ -63,6 +74,14 @@ namespace NexusFramework.DataCarrier
             this.frameworkId = frameworkId;
         }
 
+        /// <summary>
+        ///     注入事件回调，以便在实际 Tag 变更后通过外部事件系统广播。
+        /// </summary>
+        public void SetEventCallback(ICarrierEventCallback callback)
+        {
+            this.eventCallback = callback;
+        }
+
         #endregion
 
         #region 释放资源
@@ -76,6 +95,9 @@ namespace NexusFramework.DataCarrier
                 carrierTraits.Clear();
                 carriersByType.Clear();
                 nextUniqueIds.Clear();
+                tagIndex.Clear();
+                tagReverseIndex.Clear();
+                traitReverseIndex.Clear();
             }
         }
 
@@ -90,6 +112,9 @@ namespace NexusFramework.DataCarrier
             carrierTraits = new Dictionary<CarrierId, Dictionary<Type, IDataTrait>>();
             carriersByType = new Dictionary<ushort, HashSet<CarrierId>>();
             nextUniqueIds = new Dictionary<ushort, ulong>();
+            tagIndex = new TagRuntimeIndex();
+            tagReverseIndex = new Dictionary<RuntimeTagSlot, HashSet<CarrierId>>();
+            traitReverseIndex = new Dictionary<Type, HashSet<CarrierId>>();
         }
 
         public void Deinit()
@@ -99,6 +124,9 @@ namespace NexusFramework.DataCarrier
             carrierTraits.Clear();
             carriersByType.Clear();
             nextUniqueIds.Clear();
+            tagIndex.Clear();
+            tagReverseIndex.Clear();
+            traitReverseIndex.Clear();
         }
 
         #region 数据存储
@@ -111,6 +139,16 @@ namespace NexusFramework.DataCarrier
         private Dictionary<ushort, ulong> nextUniqueIds;
         private readonly object lockObject = new();
         private ushort nextTypeId = 1;
+
+        // Tag 运行时索引与反向索引
+        private TagRuntimeIndex tagIndex;
+        private Dictionary<RuntimeTagSlot, HashSet<CarrierId>> tagReverseIndex;
+
+        // Trait 类型反向索引（优化 FindCarriersWithTrait）
+        private Dictionary<Type, HashSet<CarrierId>> traitReverseIndex;
+
+        // 事件回调（由外部 Architecture 注入）
+        private ICarrierEventCallback eventCallback;
 
         #endregion
 
@@ -192,7 +230,7 @@ namespace NexusFramework.DataCarrier
         }
 
         public CarrierId CreateCarrier(string typeName) => CreateCarrier(typeNameToId[typeName]);
-        
+
         // 新增指定ID创建载体的方法
         public bool CreateCarrier(ushort typeId, ulong uniqueId)
         {
@@ -203,9 +241,9 @@ namespace NexusFramework.DataCarrier
                 return false;
             }
 
-            if (uniqueId > 0x000FFFFFFFFFFFFF)
+            if (uniqueId > 0x00000FFFFFFFFFF)
             {
-                Debug.LogError("UniqueId exceeds 52-bit limit");
+                Debug.LogError("UniqueId exceeds 40-bit limit");
                 return false;
             }
 
@@ -252,6 +290,20 @@ namespace NexusFramework.DataCarrier
 
             lock (lockObject)
             {
+                // 清理 Tag 反向索引
+                if (carrierTraits.TryGetValue(carrierId, out var traits))
+                {
+                    if (traits.TryGetValue(typeof(TagTrait), out var trait) && trait is TagTrait tagTrait)
+                        RemoveAllTagReverseEntries(carrierId, tagTrait);
+
+                    // 清理 Trait 反向索引
+                    foreach (var traitType in traits.Keys)
+                    {
+                        if (traitReverseIndex.TryGetValue(traitType, out var carriersById))
+                            carriersById.Remove(carrierId);
+                    }
+                }
+
                 carrierTraits.Remove(carrierId);
                 carriersByType[carrierId.TypeId].Remove(carrierId);
 
@@ -299,7 +351,30 @@ namespace NexusFramework.DataCarrier
             lock (lockObject)
             {
                 var traitType = typeof(T);
+
+                // 如果覆盖已有 TagTrait，先清理旧 Tag 反向索引
+                if (carrierTraits[carrierId].TryGetValue(traitType, out var existingTrait) && existingTrait is TagTrait oldTagTrait)
+                    RemoveAllTagReverseEntries(carrierId, oldTagTrait);
+
+                // 如果是 TagTrait，绑定 Manager 并建立正向 + 反向索引
+                if (trait is TagTrait tagTrait)
+                {
+                    tagTrait.Bind(this);
+                    foreach (var slot in tagTrait.Slots)
+                        AddTagReverseEntry(carrierId, slot);
+                }
+
                 carrierTraits[carrierId][traitType] = trait;
+
+                // 维护 Trait 反向索引
+                if (!traitReverseIndex.TryGetValue(traitType, out var carriers))
+                {
+                    carriers = new HashSet<CarrierId>();
+                    traitReverseIndex[traitType] = carriers;
+                }
+
+                carriers.Add(carrierId);
+
                 return true;
             }
         }
@@ -312,6 +387,15 @@ namespace NexusFramework.DataCarrier
             lock (lockObject)
             {
                 var traitType = typeof(T);
+
+                // 如果是 TagTrait，先清理 Tag 反向索引
+                if (carrierTraits[carrierId].TryGetValue(traitType, out var existingTrait) && existingTrait is TagTrait tagTrait)
+                    RemoveAllTagReverseEntries(carrierId, tagTrait);
+
+                // 清理 Trait 反向索引
+                if (traitReverseIndex.TryGetValue(traitType, out var carriers))
+                    carriers.Remove(carrierId);
+
                 return carrierTraits[carrierId].Remove(traitType);
             }
         }
@@ -375,10 +459,9 @@ namespace NexusFramework.DataCarrier
             lock (lockObject)
             {
                 var traitType = typeof(T);
-                return carrierTraits
-                    .Where(kvp => kvp.Value.ContainsKey(traitType))
-                    .Select(kvp => kvp.Key)
-                    .ToList();
+                return traitReverseIndex.TryGetValue(traitType, out var carriers)
+                    ? carriers.ToList()
+                    : Enumerable.Empty<CarrierId>();
             }
         }
 
@@ -389,10 +472,313 @@ namespace NexusFramework.DataCarrier
 
             lock (lockObject)
             {
-                return carrierTraits
-                    .Where(kvp => traitTypes.All(type => kvp.Value.ContainsKey(type)))
-                    .Select(kvp => kvp.Key)
-                    .ToList();
+                if (traitTypes.Length == 0)
+                    return Enumerable.Empty<CarrierId>();
+
+                // 从最小反向索引开始交集
+                IEnumerable<CarrierId> result = null;
+                foreach (var traitType in traitTypes)
+                {
+                    if (!traitReverseIndex.TryGetValue(traitType, out var carriers))
+                        return Enumerable.Empty<CarrierId>();
+
+                    if (result == null)
+                        result = carriers;
+                    else
+                        result = result.Intersect(carriers);
+                }
+
+                return result?.ToList() ?? Enumerable.Empty<CarrierId>();
+            }
+        }
+
+        #endregion
+
+        #region Tag 管理
+
+        public bool AddTag(CarrierId carrierId, string key)
+        {
+            if (!IsCarrierValid(carrierId))
+                return false;
+
+            var slot = InternTag(key);
+
+            lock (lockObject)
+            {
+                var tagTrait = GetOrCreateTagTrait(carrierId);
+                if (!tagTrait.Add(slot))
+                    return false;
+
+                AddTagReverseEntry(carrierId, slot);
+            }
+
+            eventCallback?.OnTagAdded(carrierId, key);
+            return true;
+        }
+
+        public bool RemoveTag(CarrierId carrierId, string key)
+        {
+            if (!IsCarrierValid(carrierId))
+                return false;
+
+            RuntimeTagSlot slot;
+            lock (lockObject)
+            {
+                var tagTrait = GetTagTrait(carrierId);
+                if (tagTrait == null)
+                    return false;
+
+                if (!tagIndex.TryGetSlot(key, out slot))
+                    return false;
+
+                if (!tagTrait.Remove(slot))
+                    return false;
+
+                RemoveTagReverseEntry(carrierId, slot);
+            }
+
+            eventCallback?.OnTagRemoved(carrierId, key);
+            return true;
+        }
+
+        public bool HasExactTag(CarrierId carrierId, string key)
+        {
+            if (!IsCarrierValid(carrierId))
+                return false;
+
+            lock (lockObject)
+            {
+                var tagTrait = GetTagTrait(carrierId);
+                if (tagTrait == null)
+                    return false;
+
+                if (!tagIndex.TryGetSlot(key, out var slot))
+                    return false;
+
+                return tagTrait.Contains(slot);
+            }
+        }
+
+        public bool HasTag(CarrierId carrierId, string key)
+        {
+            if (!IsCarrierValid(carrierId))
+                return false;
+
+            lock (lockObject)
+            {
+                var tagTrait = GetTagTrait(carrierId);
+                if (tagTrait == null)
+                    return false;
+
+                if (!tagIndex.TryGetSlot(key, out var querySlot))
+                    return false;
+
+                foreach (var actualSlot in tagTrait.Slots)
+                    if (tagIndex.MatchesOrIsAncestor(actualSlot, querySlot))
+                        return true;
+
+                return false;
+            }
+        }
+
+        public bool HasAllTags(CarrierId carrierId, IEnumerable<string> keys)
+        {
+            if (!IsCarrierValid(carrierId))
+                return false;
+
+            lock (lockObject)
+            {
+                var tagTrait = GetTagTrait(carrierId);
+                if (tagTrait == null)
+                    return false;
+
+                foreach (var key in keys)
+                    if (!HasTagUnsafe(tagTrait, key))
+                        return false;
+
+                return true;
+            }
+        }
+
+        public bool HasAnyTag(CarrierId carrierId, IEnumerable<string> keys)
+        {
+            if (!IsCarrierValid(carrierId))
+                return false;
+
+            lock (lockObject)
+            {
+                var tagTrait = GetTagTrait(carrierId);
+                if (tagTrait == null)
+                    return false;
+
+                foreach (var key in keys)
+                    if (HasTagUnsafe(tagTrait, key))
+                        return true;
+
+                return false;
+            }
+        }
+
+        public bool HasNoneTags(CarrierId carrierId, IEnumerable<string> keys)
+        {
+            return !HasAnyTag(carrierId, keys);
+        }
+
+        public IEnumerable<CarrierId> FindCarriersWithTag(string key)
+        {
+            var slot = InternTag(key);
+
+            lock (lockObject)
+            {
+                var result = new HashSet<CarrierId>();
+
+                // 精确匹配
+                if (tagReverseIndex.TryGetValue(slot, out var exactMatches))
+                    foreach (var carrierId in exactMatches)
+                        result.Add(carrierId);
+
+                // 层级匹配：找到所有子孙 tag 的 carrier
+                foreach (var kvp in tagReverseIndex)
+                {
+                    var actualSlot = kvp.Key;
+                    if (tagIndex.MatchesOrIsAncestor(actualSlot, slot))
+                        foreach (var carrierId in kvp.Value)
+                            result.Add(carrierId);
+                }
+
+                return result.ToList();
+            }
+        }
+
+        public IEnumerable<CarrierId> FindCarriersWithTags(TagQuery query)
+        {
+            if (query == null || query.IsEmpty)
+                return Enumerable.Empty<CarrierId>();
+
+            lock (lockObject)
+            {
+                IEnumerable<CarrierId> result = null;
+
+                foreach (var key in query.All)
+                {
+                    var matches = new HashSet<CarrierId>(FindCarriersWithTag(key));
+                    result = result == null ? matches : result.Intersect(matches);
+                }
+
+                if (query.Any.Count > 0)
+                {
+                    var anyMatches = new HashSet<CarrierId>();
+                    foreach (var key in query.Any)
+                        foreach (var c in FindCarriersWithTag(key))
+                            anyMatches.Add(c);
+
+                    result = result == null ? anyMatches : result.Intersect(anyMatches);
+                }
+
+                if (result == null)
+                    result = new HashSet<CarrierId>(carrierTraits.Keys);
+
+                foreach (var key in query.None)
+                {
+                    var excluded = new HashSet<CarrierId>(FindCarriersWithTag(key));
+                    var materialized = new HashSet<CarrierId>(result);
+                    materialized.ExceptWith(excluded);
+                    result = materialized;
+                }
+
+                return result.ToList();
+            }
+        }
+
+        private TagTrait GetTagTrait(CarrierId carrierId)
+        {
+            if (carrierTraits.TryGetValue(carrierId, out var traits) &&
+                traits.TryGetValue(typeof(TagTrait), out var trait))
+                return trait as TagTrait;
+
+            return null;
+        }
+
+        private TagTrait GetOrCreateTagTrait(CarrierId carrierId)
+        {
+            var existing = GetTagTrait(carrierId);
+            if (existing != null)
+                return existing;
+
+            var trait = new TagTrait();
+            trait.Bind(this);
+            carrierTraits[carrierId][typeof(TagTrait)] = trait;
+
+            // 维护 Trait 反向索引
+            if (!traitReverseIndex.TryGetValue(typeof(TagTrait), out var carriers))
+            {
+                carriers = new HashSet<CarrierId>();
+                traitReverseIndex[typeof(TagTrait)] = carriers;
+            }
+
+            carriers.Add(carrierId);
+
+            return trait;
+        }
+
+        private void AddTagReverseEntry(CarrierId carrierId, RuntimeTagSlot slot)
+        {
+            if (!tagReverseIndex.TryGetValue(slot, out var carrierSet))
+            {
+                carrierSet = new HashSet<CarrierId>();
+                tagReverseIndex[slot] = carrierSet;
+            }
+
+            carrierSet.Add(carrierId);
+        }
+
+        private void RemoveTagReverseEntry(CarrierId carrierId, RuntimeTagSlot slot)
+        {
+            if (tagReverseIndex.TryGetValue(slot, out var carrierSet))
+            {
+                carrierSet.Remove(carrierId);
+                if (carrierSet.Count == 0)
+                    tagReverseIndex.Remove(slot);
+            }
+        }
+
+        private void RemoveAllTagReverseEntries(CarrierId carrierId, TagTrait tagTrait)
+        {
+            foreach (var slot in tagTrait.Slots)
+                RemoveTagReverseEntry(carrierId, slot);
+        }
+
+        private bool HasTagUnsafe(TagTrait tagTrait, string key)
+        {
+            if (!tagIndex.TryGetSlot(key, out var querySlot))
+                return false;
+
+            foreach (var actualSlot in tagTrait.Slots)
+                if (tagIndex.MatchesOrIsAncestor(actualSlot, querySlot))
+                    return true;
+
+            return false;
+        }
+
+        /// <summary>
+        ///     内部使用：将 TagKey intern 成 RuntimeTagSlot。
+        /// </summary>
+        public RuntimeTagSlot InternTag(string key)
+        {
+            lock (lockObject)
+            {
+                return tagIndex.Intern(key);
+            }
+        }
+
+        /// <summary>
+        ///     内部使用：从 RuntimeTagSlot 还原 TagKey 字符串。
+        /// </summary>
+        public string GetTagKey(RuntimeTagSlot slot)
+        {
+            lock (lockObject)
+            {
+                return tagIndex.GetKey(slot);
             }
         }
 
@@ -454,8 +840,27 @@ namespace NexusFramework.DataCarrier
                         if (traitType != null && typeof(IDataTrait).IsAssignableFrom(traitType))
                         {
                             var trait = (IDataTrait)Activator.CreateInstance(traitType);
+
+                            // 如果是 TagTrait，先绑定当前 Manager 再反序列化
+                            var tagTrait = trait as TagTrait;
+                            if (tagTrait != null)
+                                tagTrait.Bind(this);
+
                             trait.FromJson(traitData.data);
                             carrierTraits[carrierId][traitType] = trait;
+
+                            // 维护 Trait 反向索引
+                            if (!traitReverseIndex.TryGetValue(traitType, out var carriers))
+                            {
+                                carriers = new HashSet<CarrierId>();
+                                traitReverseIndex[traitType] = carriers;
+                            }
+                            carriers.Add(carrierId);
+
+                            // 如果是 TagTrait，重建 Tag 反向索引
+                            if (tagTrait != null)
+                                foreach (var slot in tagTrait.Slots)
+                                    AddTagReverseEntry(carrierId, slot);
                         }
                     }
                 }

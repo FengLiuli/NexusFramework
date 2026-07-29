@@ -129,7 +129,7 @@ namespace NexusFramework
 
         private readonly IOCContainer mContainer = new();
         private readonly TypeEventService mTypeEventService = new();
-        private readonly ICarrierManager mCarrierManager = new CarrierManager();
+        private readonly CarrierManager mCarrierManager = new CarrierManager();
         private bool mInitialized;
 
         #endregion
@@ -163,6 +163,9 @@ namespace NexusFramework
 
             // 注册内置CarrierManager - 明确指定接口类型
             mContainer.Register(mCarrierManager);
+
+            // 注入事件回调，使 CarrierManager 可以通过 Architecture 的事件系统发布事件
+            mCarrierManager.SetEventCallback(new CarrierManagerEventBridge(this));
 
             // 调用子类初始化
             OnInit();
@@ -381,4 +384,27 @@ namespace NexusFramework
     }
 
     #endregion
+
+    /// <summary>
+    ///     CarrierManager 事件桥接，将内部事件转发到 Architecture 的事件系统。
+    /// </summary>
+    internal class CarrierManagerEventBridge : ICarrierEventCallback
+    {
+        private readonly Architecture architecture;
+
+        internal CarrierManagerEventBridge(Architecture architecture)
+        {
+            this.architecture = architecture;
+        }
+
+        public void OnTagAdded(CarrierId carrier, string key)
+        {
+            architecture.SendEvent(new CarrierTagAddedEvent { Carrier = carrier, Key = key });
+        }
+
+        public void OnTagRemoved(CarrierId carrier, string key)
+        {
+            architecture.SendEvent(new CarrierTagRemovedEvent { Carrier = carrier, Key = key });
+        }
+    }
 }
