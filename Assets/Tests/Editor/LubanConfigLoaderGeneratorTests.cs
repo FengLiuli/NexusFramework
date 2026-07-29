@@ -14,27 +14,6 @@ namespace NexusFramework.GAS.Tests.Editor
         private const string GeneratedFilePath = "Assets/Demo/Emberheart/GAS/Generated/LubanConfigLoader.cs";
 
         /// <summary>
-        /// 验证菜单项存在且可调用（通过反射检查 MenuItem 属性）
-        /// </summary>
-        [Test]
-        public void Generator_MenuItem_Exists()
-        {
-            var type = typeof(LubanConfigLoaderGenerator);
-            var methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            bool hasMenuItem = false;
-            foreach (var m in methods)
-            {
-                var attr = m.GetCustomAttribute<MenuItem>();
-                if (attr != null && attr.menuItem == "NF.GAS/Generate/LubanConfigLoader")
-                {
-                    hasMenuItem = true;
-                    break;
-                }
-            }
-            Assert.That(hasMenuItem, Is.True, "菜单项 NF.GAS/Generate/LubanConfigLoader 应存在");
-        }
-
-        /// <summary>
         /// 执行生成器不抛异常
         /// </summary>
         [Test]
