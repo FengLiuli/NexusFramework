@@ -75,6 +75,15 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 *.changes
 *.wktree
-*.md
-*.md
-/.claude
+
+# Claude Code local state — settings are personal, but skills are shared.
+/.claude/*
+!/.claude/skills/
+
+# The vendored com.unity.pipeline package ships its own tests; keep them out of
+# the repo (1.9 MB / 309 files). The editor still compiles them from disk locally.
+/Packages/com.unity.pipeline/Tests/
+
+# Pipeline run_script staging area: agents write throwaway C# here (must live outside
+# Assets/ to avoid import/domain-reload). Never a source of truth — safe to ignore.
+/AgentScripts/
