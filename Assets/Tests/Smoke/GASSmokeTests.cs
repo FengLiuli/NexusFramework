@@ -59,7 +59,7 @@ namespace NexusFramework.GAS.Tests.Smoke
         public void All_Services_Are_Accessible()
         {
             Assert.That(_arch.GetService<WorldService>(), Is.Not.Null);
-            Assert.That(_arch.GetService<TagService>(), Is.Not.Null);
+            Assert.That(_arch.GetTagService(), Is.Not.Null);
             Assert.That(_arch.GetService<EffectService>(), Is.Not.Null);
             Assert.That(_arch.GetService<AbilityService>(), Is.Not.Null);
             Assert.That(_arch.GetService<CueService>(), Is.Not.Null);

@@ -18,6 +18,11 @@ namespace NexusFramework.GAS
 
         protected virtual IConfigLoader CreateConfigLoader() => new JsonConfigLoader();
 
+        /// <summary>
+        ///     GAS 模式下 Tag 由 ECS 承载，因此覆盖基类的托管实现。
+        /// </summary>
+        protected override ITagService CreateTagService() => new EcsTagService(this);
+
         protected override void OnInit()
         {
             RegisterModel(new GASEntityMapModel());
@@ -25,12 +30,19 @@ namespace NexusFramework.GAS
             RegisterService(new WorldService());
             RegisterService(new TimerService());
             RegisterService(new EventBridgeService());
-            RegisterService(new TagService());
             RegisterService(new EffectService());
             RegisterService(new AbilityService());
             RegisterService(new CueService());
             RegisterService(new AttributeService());
             RegisterUtility(CreateConfigLoader());
+        }
+
+        /// <summary>
+        ///     配置装载完毕后烘焙 Tag 层级。此时 ConfigModel 已填充、WorldService 已就绪。
+        /// </summary>
+        protected override void OnInitialized()
+        {
+            (GetTagService() as EcsTagService)?.RebuildTagMap();
         }
 
         public CarrierId CreateGASCarrier(string typeName, GameObject go = null)

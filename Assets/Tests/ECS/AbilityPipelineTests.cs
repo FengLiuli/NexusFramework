@@ -27,19 +27,8 @@ namespace NexusFramework.GAS.Tests.ECS
             _em = ws.EntityManager;
             _world = ws.ExWorld;
 
-            // 销毁 TagService 自动创建的空单例，替换为测试用空映射
-            var existQuery = _em.CreateEntityQuery(ComponentType.ReadOnly<SingletonGameplayTagMap>());
-            var existEntities = existQuery.ToEntityArray(Allocator.Temp);
-            foreach (var e in existEntities) _em.DestroyEntity(e);
-            existEntities.Dispose();
-            existQuery.Dispose();
-
-            var tagEntity = _em.CreateEntity();
-            _em.AddComponent<SingletonGameplayTagMap>(tagEntity);
-            _em.SetComponentData(tagEntity, new SingletonGameplayTagMap
-            {
-                Map = new NativeHashMap<int, ComGameplayTag>(1, Allocator.Persistent)
-            });
+            // 标签层级由 EcsTagService.RebuildTagMap 在架构初始化时烘焙，
+            // 此处不再需要替换空映射。
         }
 
         [TearDown]

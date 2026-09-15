@@ -1,91 +1,39 @@
 [
   {
-    "ID": 1,
-    "Name": "TestTimeline",
-    "LifeTime": 5000,
+    "ID": 10001,
+    "Name": "测试时间轴",
+    "LifeTime": 60,
     "ManualEndAbility": false,
     "Tracks": [
       {
-        "Name": "MainTrack",
+        "Name": "Track0",
         "TaskClips": [
           {
             "StartTime": 0,
-            "EndTime": 500,
-            "Name": "ApplyDamage",
-            "Task": {
-              "$type": "TaskApplyEffects",
-              "Param": {
-                "$type": "XParamApplyEffects",
-                "IDs": [1],
-                "TargetCatcher": {
-                  "$type": "CatchSelf",
-                  "Param": {"$type": "XParamNone"}
-                }
-              }
-            }
-          },
-          {
-            "StartTime": 1000,
-            "EndTime": 1500,
-            "Name": "PlayCue",
-            "Task": {
-              "$type": "TaskPlayCue",
-              "Param": {
-                "$type": "XParamCue",
-                "RequiredTags": [],
-                "ImmunityTags": [],
-                "CueLogic": {
-                  "$type": "CueLog",
-                  "Param": {
-                    "$type": "XParamString",
-                    "Value": "Timeline cue triggered"
-                  }
-                }
-              }
-            }
-          }
-        ]
-      },
-      {
-        "Name": "DebugTrack",
-        "TaskClips": [
-          {
-            "StartTime": 2000,
-            "EndTime": 2500,
-            "Name": "DebugLog",
+            "EndTime": 0,
+            "Name": "开场日志",
             "Task": {
               "$type": "TaskDebug",
               "Param": {
-                "$type": "XParamString",
-                "Value": "Timeline debug log at 2s"
+                "Value": "timeline begin"
               }
             }
           },
           {
-            "StartTime": 3000,
-            "EndTime": 3500,
-            "Name": "DoCooldown",
+            "StartTime": 10,
+            "EndTime": 20,
+            "Name": "施法",
             "Task": {
-              "$type": "TaskDoCooldown",
-              "Param": {"$type": "XParamNone"}
-            }
-          },
-          {
-            "StartTime": 4000,
-            "EndTime": 4500,
-            "Name": "DoCost",
-            "Task": {
-              "$type": "TaskDoCost",
-              "Param": {"$type": "XParamNone"}
-            }
-          },
-          {
-            "StartTime": 4500,
-            "EndTime": 5000,
-            "Name": "DoNothing",
-            "Task": {
-              "$type": "TaskDoNothing",
-              "Param": {"$type": "XParamNone"}
+              "$type": "TaskApplyEffects",
+              "Param": {
+                "IDs": [
+                  1002
+                ],
+                "TargetCatcher": {
+                  "$type": "CatchSelf",
+                  "Param": {}
+                }
+              }
             }
           }
         ]

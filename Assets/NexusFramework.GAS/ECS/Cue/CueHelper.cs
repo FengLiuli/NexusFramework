@@ -108,6 +108,50 @@ namespace NexusFramework.GAS.ECS
             return cue;
         }
 
+        /// <summary>
+        ///     按配置创建一个 Cue 实体并挂到目标 ASC 上。
+        ///     创建后需由调用方决定何时 <see cref="PlayCue"/>／<see cref="StopCue"/>。
+        /// </summary>
+        /// <param name="config">ECS 侧的 Cue 配置。注意与 <c>Config.GameplayCueConfig</c>（IConfigLoader 用的结构体）同名不同物。</param>
+        /// <param name="source">表现来源实体（GE 或技能），供 Cue 逻辑溯源。</param>
+        public static Entity CreateCueEntity(EntityManager entityManager, GameplayCueConfig config,
+            Entity targetAsc, Entity source = default, IGASEntityResolver resolver = null)
+        {
+            if (config?.CueType == null)
+            {
+                Debug.LogError("[NF.GAS] CreateCueEntity: CueType 为空");
+                return Entity.Null;
+            }
+
+            var cueLogic = TryCreateCue(config.CueType, config.Param, resolver);
+            if (cueLogic == null)
+            {
+                Debug.LogError($"[NF.GAS] CreateCueEntity: 无法创建 Cue '{config.CueType}'");
+                return Entity.Null;
+            }
+
+            var entity = entityManager.CreateEntity();
+
+            entityManager.AddComponent<ECCuePlayable>(entity);
+            entityManager.SetComponentEnabled<ECCuePlayable>(entity, false);
+
+            entityManager.AddComponent<ECCuePlaying>(entity);
+            entityManager.SetComponentEnabled<ECCuePlaying>(entity, false);
+
+            entityManager.AddComponent<ECKillCue>(entity);
+            entityManager.SetComponentEnabled<ECKillCue>(entity, false);
+
+            entityManager.AddComponent<MCCue>(entity);
+
+            var cue = new MCCue(cueLogic);
+            cue.cue.SetCueEntity(entity);
+            cue.cue.SetSourceEntity(source, CueSourceType.GameplayEffect);
+            cue.cue.AddToTargetAsc(targetAsc);
+            entityManager.SetComponentData(entity, cue);
+
+            return entity;
+        }
+
         public static void StopCue(EntityManager entityManager, Entity cueEntity)
         {
             if (entityManager.IsComponentEnabled<ECCuePlaying>(cueEntity))

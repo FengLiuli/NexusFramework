@@ -1,68 +1,51 @@
 [
   {
-    "ID": 1,
-    "Name": "FireBall",
-    "Desc": "Fireball ability: costs 30 Mana, 5s CD, applies InstantDamage",
-    "Cost": 8,
-    "CdEffect": 1,
-    "Cd": 5000,
-    "AssetTags": [4],
-    "CancelAbilityWithTags": null,
-    "BlockAbilityWithTags": null,
-    "ActivationOwnedTags": [],
-    "ActivationRequiredTags": null,
-    "ActivationBlockedTags": null,
-    "AbilityLogic": {
-      "$type": "ALApplyEffect",
-      "Param": {
-        "$type": "XParamEffectIDs",
-        "IDs": [1]
-      }
-    }
-  },
-  {
-    "ID": 2,
-    "Name": "HealSpell",
-    "Desc": "Healing spell: costs 20 Mana, 3s CD, heals for 50 HP",
-    "Cost": 8,
-    "CdEffect": 1,
-    "Cd": 3000,
-    "AssetTags": [1],
-    "CancelAbilityWithTags": null,
-    "BlockAbilityWithTags": null,
-    "ActivationOwnedTags": [],
-    "ActivationRequiredTags": null,
-    "ActivationBlockedTags": null,
-    "AbilityLogic": {
-      "$type": "ALApplyEffect",
-      "Param": {
-        "$type": "XParamEffectIDs",
-        "IDs": [3]
-      }
-    }
-  },
-  {
-    "ID": 3,
-    "Name": "DebugLogAbility",
-    "Desc": "Debug ability that logs a message",
+    "ID": 1004,
+    "Name": "测试-日志",
+    "Desc": "验证技能激活链路",
     "Cost": 0,
-    "CdEffect": 1,
+    "CdEffect": 0,
     "Cd": 0,
     "AssetTags": [],
-    "CancelAbilityWithTags": null,
-    "BlockAbilityWithTags": null,
     "ActivationOwnedTags": [],
-    "ActivationRequiredTags": {
-      "All": [],
-      "Any": [1],
-      "None": []
-    },
-    "ActivationBlockedTags": null,
     "AbilityLogic": {
       "$type": "ALDebugLog",
       "Param": {
-        "$type": "XParamString",
-        "Value": "DebugLogAbility activated!"
+        "Value": "hello from ability"
+      }
+    }
+  },
+  {
+    "ID": 1005,
+    "Name": "测试-施加效果",
+    "Desc": "对自身施加 GE 1002",
+    "Cost": 0,
+    "CdEffect": 0,
+    "Cd": 0,
+    "AssetTags": [],
+    "ActivationOwnedTags": [],
+    "AbilityLogic": {
+      "$type": "ALApplyEffect",
+      "Param": {
+        "IDs": [
+          1002
+        ]
+      }
+    }
+  },
+  {
+    "ID": 1006,
+    "Name": "测试-时间轴",
+    "Desc": "驱动 10001 号时间轴",
+    "Cost": 0,
+    "CdEffect": 0,
+    "Cd": 0,
+    "AssetTags": [],
+    "ActivationOwnedTags": [],
+    "AbilityLogic": {
+      "$type": "ALTimeline",
+      "Param": {
+        "ID": 10001
       }
     }
   }

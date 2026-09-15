@@ -65,7 +65,12 @@ namespace NexusFramework.GAS.ECS
         public virtual void SetParam(XParam param) => _paramRaw = param;
         public XParam GetParam() => _paramRaw;
 
-        protected Entity CreateGameplayEffectEntity(GameplayEffectComponentConfig[] configs)
+        // 以下三个方法为 internal 而非 protected：
+        // AbilityTaskBase 与本类同在 GAS 程序集但非派生关系，需要经由它们
+        // 产生副作用。保持 internal 让 Task 的能力面被限制在这三个方法内，
+        // 而不是开放 _entityManager 供任意 ECS 操作。
+
+        internal Entity CreateGameplayEffectEntity(GameplayEffectComponentConfig[] configs)
         {
             GameplayEffectComponentConfig.SetEntityManager(_entityManager);
             var entity = _entityManager.CreateEntity();
@@ -74,7 +79,7 @@ namespace NexusFramework.GAS.ECS
             return entity;
         }
 
-        protected void ApplyGameplayEffectTo(Entity gameplayEffect, Entity target, Entity source)
+        internal void ApplyGameplayEffectTo(Entity gameplayEffect, Entity target, Entity source)
         {
             _entityManager.AddComponent<CEffectInUsage>(gameplayEffect);
             _entityManager.AddComponent<WipInstantiateEffect>(gameplayEffect);
@@ -90,7 +95,7 @@ namespace NexusFramework.GAS.ECS
             });
         }
 
-        protected void RemoveGameplayEffect(Entity gameplayEffect)
+        internal void RemoveGameplayEffect(Entity gameplayEffect)
         {
             if (_entityManager.Exists(gameplayEffect) && _entityManager.HasComponent<CEffectInUsage>(gameplayEffect))
             {

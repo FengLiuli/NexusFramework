@@ -55,6 +55,15 @@ namespace NexusFramework.DataCarrier
             return false;
         }
 
+        /// <summary>
+        ///     按槽位值反查槽位，用于跨程序集传入的 int 槽位（如 ITagService 的公开 API）。
+        /// </summary>
+        public bool TryGetSlot(int slotValue, out RuntimeTagSlot slot)
+        {
+            slot = new RuntimeTagSlot(slotValue);
+            return entriesBySlot.ContainsKey(slot);
+        }
+
         public string GetKey(RuntimeTagSlot slot)
         {
             if (!entriesBySlot.TryGetValue(slot, out var entry))

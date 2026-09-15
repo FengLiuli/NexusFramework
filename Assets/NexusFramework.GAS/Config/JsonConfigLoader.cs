@@ -64,5 +64,11 @@ namespace NexusFramework.GAS.Config
             Debug.LogWarning("[JsonConfigLoader] GetAttrSetDef not implemented (Luban only)");
             return null;
         }
+
+        public XParamTimeline GetTimelineAbilityParam(int id)
+        {
+            Debug.LogWarning("[JsonConfigLoader] GetTimelineAbilityParam not implemented (Luban only)");
+            return null;
+        }
     }
 }
