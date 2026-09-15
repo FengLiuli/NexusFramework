@@ -85,56 +85,6 @@ namespace NexusFramework.GAS.ECS
 
         }
 
-        /// <summary>
-        /// 立即应用 Instant 类型的 GameplayEffect（直接修改 BaseValue），替代 GameplayEffectHelper.ApplyGameplayEffectImmediate
-        /// </summary>
-        private static void ApplyGameplayEffectImmediate(EntityManager entityManager, EntityCommandBuffer ecb, Entity gameplayEffect, Entity target, Entity source)
-        {
-            if (!entityManager.HasComponent<MCModifiers>(gameplayEffect)) return;
-
-            var modifiers = entityManager.GetComponentData<MCModifiers>(gameplayEffect);
-            var attrSets = entityManager.GetBuffer<BEAttrSet>(target);
-            bool change = false;
-
-            foreach (var modifier in modifiers.Modifiers)
-            {
-                var attrSetIndex = attrSets.IndexOfAttrSetCode(modifier.AttrSetCode);
-                if (attrSetIndex == -1) continue;
-
-                var attrSet = attrSets[attrSetIndex];
-                var attributes = attrSet.Attributes;
-
-                var attrIndex = attributes.IndexOfAttrCode(modifier.AttrCode);
-                if (attrIndex == -1) continue;
-
-                var data = attributes[attrIndex];
-                var oldValue = data.BaseValue;
-                var newValue = GasMmcHelper.Calculate(entityManager, gameplayEffect, modifier, data.BaseValue, source, target);
-
-                if (data.IsClampMin) newValue = math.max(newValue, data.MinValue);
-                if (data.IsClampMax) newValue = math.min(newValue, data.MaxValue);
-
-                data.BaseValue = newValue;
-
-                if (newValue != oldValue)
-                {
-                    data.Dirty = true;
-                    change = true;
-                    GASInternalBridge.Enqueue(new AttributeBaseChangedEvent
-                    {
-                        Target = target, AttrSetCode = modifier.AttrSetCode, AttrCode = modifier.AttrCode,
-                        OldValue = oldValue, NewValue = newValue
-                    });
-                }
-
-                attrSet.Attributes[attrIndex] = data;
-                attrSets[attrSetIndex] = attrSet;
-            }
-
-            if (change)
-                ecb.AddComponent<CAttributeIsDirty>(target);
-        }
-
         /// <summary>  
         /// 刷新Duration的激活时间（用于Stacking过期策略的Duration刷新）。  
         /// 无论当前是否已激活，都强制重置 activeTime 为当前时间。  
@@ -199,7 +149,7 @@ namespace NexusFramework.GAS.ECS
                 {
                     var inUsage = entityManager.GetComponentData<CEffectInUsage>(ge);
                     foreach (var overflowEffect in stacking.overflowEffects)
-                        ApplyGameplayEffectImmediate(entityManager, ecb, overflowEffect, inUsage.Target, inUsage.Source);
+                        GameplayEffectHelper.ApplyGameplayEffectImmediate(entityManager, ecb, overflowEffect, inUsage.Target, inUsage.Source);
                 }
 
                 if (stacking.denyOverflowApplication)

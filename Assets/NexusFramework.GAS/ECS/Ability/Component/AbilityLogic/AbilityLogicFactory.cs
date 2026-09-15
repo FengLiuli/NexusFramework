@@ -10,6 +10,7 @@ namespace NexusFramework.GAS.ECS
         private static readonly Dictionary<string, Type> _logicTypes = new();
         private static readonly Dictionary<string, Type> _logicParamTypes = new();
         private static readonly Dictionary<string, Type> _taskParamTypes = new();
+        private static readonly Dictionary<string, Type> _taskTypes = new();
         internal static EntityManager _entityManager;
         internal static IArchitecture _architecture;
 
@@ -41,6 +42,31 @@ namespace NexusFramework.GAS.ECS
         {
             _taskParamTypes.TryGetValue(typeName, out var type);
             return type;
+        }
+
+        public static void RegisterAbilityTask(string typeName, Type taskType)
+        {
+            _taskTypes[typeName] = taskType;
+        }
+
+        /// <summary>
+        ///     按类型名创建时间轴任务。任务需要所属技能逻辑作为上下文。
+        /// </summary>
+        public static AbilityTaskBase TryCreateAbilityTask(string typeName, AbilityLogicBase logic)
+        {
+            if (!_taskTypes.TryGetValue(typeName, out var type))
+                return null;
+
+            try
+            {
+                return (AbilityTaskBase)Activator.CreateInstance(type, logic);
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError(
+                    $"[NF.GAS] 创建 AbilityTask '{typeName}' 失败：{e.Message}");
+                return null;
+            }
         }
 
         public static AbilityLogicBase TryCreateAbilityLogic(string typeName, Entity ability)

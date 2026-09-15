@@ -58,6 +58,7 @@ namespace NexusFramework.GAS.Demo
         public TagHierarchyData ParseTagHierarchy(string json) => default;
         public AscConfigData? GetAscConfig(int ascId) => null;
         public AttrSetDef? GetAttrSetDef(int attrSetId) => null;
+        public NexusFramework.GAS.ECS.XParamTimeline GetTimelineAbilityParam(int id) => null;
 
         public static void Populate(ConfigModel model)
         {

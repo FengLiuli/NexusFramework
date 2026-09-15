@@ -113,6 +113,9 @@ namespace NexusFramework
 
         // 内置CarrierManager
         ICarrierManager GetCarrierManager();
+
+        // 内置TagService
+        ITagService GetTagService();
     }
 
     #endregion
@@ -485,37 +488,37 @@ namespace NexusFramework
     {
         public static bool HasExactTag(this ICanGetCarrierTag self, CarrierId carrierId, string key)
         {
-            return self.Architecture.GetCarrierManager().HasExactTag(carrierId, key);
+            return self.Architecture.GetTagService().HasExactTag(carrierId, key);
         }
 
         public static bool HasTag(this ICanGetCarrierTag self, CarrierId carrierId, string key)
         {
-            return self.Architecture.GetCarrierManager().HasTag(carrierId, key);
+            return self.Architecture.GetTagService().HasTag(carrierId, key);
         }
 
         public static bool HasAllTags(this ICanGetCarrierTag self, CarrierId carrierId, IEnumerable<string> keys)
         {
-            return self.Architecture.GetCarrierManager().HasAllTags(carrierId, keys);
+            return self.Architecture.GetTagService().HasAllTags(carrierId, keys);
         }
 
         public static bool HasAnyTag(this ICanGetCarrierTag self, CarrierId carrierId, IEnumerable<string> keys)
         {
-            return self.Architecture.GetCarrierManager().HasAnyTag(carrierId, keys);
+            return self.Architecture.GetTagService().HasAnyTag(carrierId, keys);
         }
 
         public static bool HasNoneTags(this ICanGetCarrierTag self, CarrierId carrierId, IEnumerable<string> keys)
         {
-            return self.Architecture.GetCarrierManager().HasNoneTags(carrierId, keys);
+            return self.Architecture.GetTagService().HasNoneTags(carrierId, keys);
         }
 
         public static IEnumerable<CarrierId> FindCarriersWithTag(this ICanGetCarrierTag self, string key)
         {
-            return self.Architecture.GetCarrierManager().FindCarriersWithTag(key);
+            return self.Architecture.GetTagService().FindCarriersWithTag(key);
         }
 
         public static IEnumerable<CarrierId> FindCarriersWithTags(this ICanGetCarrierTag self, TagQuery query)
         {
-            return self.Architecture.GetCarrierManager().FindCarriersWithTags(query);
+            return self.Architecture.GetTagService().FindCarriersWithTags(query);
         }
     }
 
@@ -526,12 +529,12 @@ namespace NexusFramework
     {
         public static bool AddTag(this ICanManageCarrierTag self, CarrierId carrierId, string key)
         {
-            return self.Architecture.GetCarrierManager().AddTag(carrierId, key);
+            return self.Architecture.GetTagService().AddTag(carrierId, key);
         }
 
         public static bool RemoveTag(this ICanManageCarrierTag self, CarrierId carrierId, string key)
         {
-            return self.Architecture.GetCarrierManager().RemoveTag(carrierId, key);
+            return self.Architecture.GetTagService().RemoveTag(carrierId, key);
         }
     }
 

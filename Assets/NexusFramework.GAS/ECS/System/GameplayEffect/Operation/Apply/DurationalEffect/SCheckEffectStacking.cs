@@ -40,10 +40,10 @@ namespace NexusFramework.GAS.ECS
                 var stackGe = stacking.ValueRO.StackType switch
                 {
                     EffectStackType.AggregateBySource =>
-                        GetStackingEffectBySource(state.EntityManager, stacking.ValueRO.StackingCode,
+                        GameplayEffectHelper.GetStackingEffectBySource(state.EntityManager, stacking.ValueRO.StackingCode,
                             inUsage.ValueRO.Target, inUsage.ValueRO.Source),
                     EffectStackType.AggregateByTarget =>  
-                        GetStackingEffectByTarget(state.EntityManager, stacking.ValueRO.StackingCode,  
+                        GameplayEffectHelper.GetStackingEffectByTarget(state.EntityManager, stacking.ValueRO.StackingCode,  
                             inUsage.ValueRO.Target),
                     _ => Entity.Null
                 };
@@ -140,7 +140,7 @@ namespace NexusFramework.GAS.ECS
                     var target = inUsage.Target;  
                     var source = inUsage.Source;  
                     foreach (var overflowEffect in stacking.overflowEffects)  
-                        ApplyGameplayEffectImmediate(entityManager, ecb, overflowEffect, target, source);  
+                        GameplayEffectHelper.ApplyGameplayEffectImmediate(entityManager, ecb, overflowEffect, target, source);  
                 }  
   
                 // 2. 检查是否拒绝溢出应用  
@@ -199,91 +199,5 @@ namespace NexusFramework.GAS.ECS
             return duration;  
         }
 
-        private static Entity GetStackingEffectBySource(EntityManager entityManager, int stackingCode, Entity targetAsc, Entity sourceAsc)
-        {
-            var effects = entityManager.GetBuffer<BGameplayEffect>(targetAsc);
-
-            for (var i = 0; i < effects.Length; i++)
-            {
-                var effect = effects[i].GameplayEffect;
-
-                var hasStacking = entityManager.HasComponent<CStacking>(effect);
-                if (!hasStacking) continue;
-
-                var stacking = entityManager.GetComponentData<CStacking>(effect);
-                if (stacking.StackType != EffectStackType.AggregateBySource) continue;
-
-                var source = entityManager.GetComponentData<CEffectInUsage>(effect).Source;
-                if (source != sourceAsc) continue;
-
-                if (stacking.StackingCode == stackingCode)
-                    return effect;
-            }
-
-            return Entity.Null;
-        }
-
-        private static Entity GetStackingEffectByTarget(EntityManager entityManager, int stackingCode, Entity targetAsc)
-        {
-            var effects = entityManager.GetBuffer<BGameplayEffect>(targetAsc);
-
-            for (var i = 0; i < effects.Length; i++)
-            {
-                var effect = effects[i].GameplayEffect;
-
-                var hasStacking = entityManager.HasComponent<CStacking>(effect);
-                if (!hasStacking) continue;
-
-                var stacking = entityManager.GetComponentData<CStacking>(effect);
-                if (stacking.StackType != EffectStackType.AggregateByTarget) continue;
-
-                if (stacking.StackingCode == stackingCode)
-                    return effect;
-            }
-
-            return Entity.Null;
-        }
-
-        private static void ApplyGameplayEffectImmediate(EntityManager entityManager, EntityCommandBuffer ecb, Entity gameplayEffect, Entity target, Entity source)
-        {
-            if (!entityManager.HasComponent<MCModifiers>(gameplayEffect)) return;
-
-            var modifiers = entityManager.GetComponentData<MCModifiers>(gameplayEffect);
-            var attrSets = entityManager.GetBuffer<BEAttrSet>(target);
-            bool change = false;
-
-            foreach (var modifier in modifiers.Modifiers)
-            {
-                var attrSetIndex = attrSets.IndexOfAttrSetCode(modifier.AttrSetCode);
-                if (attrSetIndex == -1) continue;
-
-                var attrSet = attrSets[attrSetIndex];
-                var attributes = attrSet.Attributes;
-
-                var attrIndex = attributes.IndexOfAttrCode(modifier.AttrCode);
-                if (attrIndex == -1) continue;
-
-                var data = attributes[attrIndex];
-                var oldValue = data.BaseValue;
-                var newValue = GasMmcHelper.Calculate(entityManager, gameplayEffect, modifier, data.BaseValue, source, target);
-
-                if (data.IsClampMin) newValue = math.max(newValue, data.MinValue);
-                if (data.IsClampMax) newValue = math.min(newValue, data.MaxValue);
-
-                data.BaseValue = newValue;
-
-                if (newValue != oldValue)
-                {
-                    data.Dirty = true;
-                    change = true;
-                }
-
-                attrSet.Attributes[attrIndex] = data;
-                attrSets[attrSetIndex] = attrSet;
-            }
-
-            if (change)
-                ecb.AddComponent<CAttributeIsDirty>(target);
-        }
     }
 }

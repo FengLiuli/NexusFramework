@@ -34,6 +34,9 @@ namespace NexusFramework.GAS.Config
 
         /// <summary>获取属性集定义（按属性集 ID，含属性代码、初始值、Clamp 范围）</summary>
         AttrSetDef? GetAttrSetDef(int attrSetId);
+
+        /// <summary>获取时间轴技能定义（按时间轴 ID），不存在返回 null。</summary>
+        ECS.XParamTimeline GetTimelineAbilityParam(int id);
     }
 
     // ── ASC 运行时创建 数据模型 ──────────────────────────────

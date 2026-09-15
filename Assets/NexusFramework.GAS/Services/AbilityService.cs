@@ -21,18 +21,53 @@ namespace NexusFramework.GAS.Services
 
         protected override void OnDeinit() { }
 
-        /// <summary>自动扫描 Architecture 所在程序集中所有 AbilityLogicBase 子类并注册</summary>
+        /// <summary>
+        ///     扫描 GAS 模块程序集与 Architecture 所在程序集，
+        ///     注册全部 AbilityLogic / TargetCatcher / AbilityTask 子类。
+        ///     <para>
+        ///         两个程序集都要扫：框架自带的逻辑（ALApplyEffect 等）在 GAS 程序集，
+        ///         而项目自定义的逻辑与 Architecture 同程序集。只扫后者会漏掉框架逻辑。
+        ///     </para>
+        /// </summary>
         public void ScanAndRegisterAll()
         {
-            var assembly = Architecture.GetType().Assembly;
+            var assemblies = new List<System.Reflection.Assembly>
+            {
+                typeof(AbilityService).Assembly,
+                Architecture.GetType().Assembly
+            };
+
+            var seen = new HashSet<Type>();
+
+            foreach (var assembly in assemblies)
             foreach (var type in assembly.GetTypes())
             {
-                if (type.IsAbstract || !typeof(AbilityLogicBase).IsAssignableFrom(type)) continue;
-                AbilityLogicFactory.Register(type.Name, type);
+                if (type.IsAbstract || !seen.Add(type)) continue;
 
-                var paramType = InferParamType(type, typeof(AbilityLogicBase<>));
-                if (paramType != null)
-                    AbilityLogicFactory.RegisterAbilityLogicParam(type.Name, paramType);
+                if (typeof(AbilityLogicBase).IsAssignableFrom(type))
+                {
+                    AbilityLogicFactory.Register(type.Name, type);
+
+                    var paramType = InferParamType(type, typeof(AbilityLogicBase<>));
+                    if (paramType != null)
+                        AbilityLogicFactory.RegisterAbilityLogicParam(type.Name, paramType);
+                }
+
+                if (typeof(TargetCatcherBase).IsAssignableFrom(type))
+                {
+                    var paramType = InferParamType(type, typeof(TargetCatcherBase<>));
+                    if (paramType != null)
+                        TargetCatcherHelper.RegisterTargetCatcher(type.Name, type, paramType);
+                }
+
+                if (typeof(AbilityTaskBase).IsAssignableFrom(type))
+                {
+                    AbilityLogicFactory.RegisterAbilityTask(type.Name, type);
+
+                    var paramType = InferParamType(type, typeof(AbilityTaskBase<>));
+                    if (paramType != null)
+                        AbilityLogicFactory.RegisterAbilityTaskParam(type.Name, paramType);
+                }
             }
         }
 

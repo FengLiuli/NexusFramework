@@ -1,2 +1,12 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Native/managed binaries — never normalize line endings, never attempt a diff.
+# Covers the Roslyn DLLs vendored under Packages/com.unity.pipeline.
+*.dll binary
+*.pdb binary
+*.mdb binary
+*.so binary
+*.dylib binary
+*.a binary
+*.lib binary

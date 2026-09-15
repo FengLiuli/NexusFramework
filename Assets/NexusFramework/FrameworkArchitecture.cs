@@ -32,6 +32,8 @@ namespace NexusFramework
         {
             foreach (var instance in mInstances.Values)
             {
+                // 幂等：同一实例可能以多个 key 注册（如接口 + 具体类型），重复初始化会创建多份单例
+                if (instance.Initialized) continue;
                 instance.Init();
                 instance.Initialized = true;
             }
@@ -41,6 +43,7 @@ namespace NexusFramework
         {
             foreach (var instance in mInstances.Values)
             {
+                if (!instance.Initialized) continue;
                 instance.Deinit();
                 instance.Initialized = false;
             }
@@ -114,6 +117,11 @@ namespace NexusFramework
             return mCarrierManager;
         }
 
+        public ITagService GetTagService()
+        {
+            return mTagService;
+        }
+
         #endregion
 
         #region 架构标识和状态
@@ -130,6 +138,7 @@ namespace NexusFramework
         private readonly IOCContainer mContainer = new();
         private readonly TypeEventService mTypeEventService = new();
         private readonly CarrierManager mCarrierManager = new CarrierManager();
+        private ITagService mTagService;
         private bool mInitialized;
 
         #endregion
@@ -165,7 +174,14 @@ namespace NexusFramework
             mContainer.Register(mCarrierManager);
 
             // 注入事件回调，使 CarrierManager 可以通过 Architecture 的事件系统发布事件
-            mCarrierManager.SetEventCallback(new CarrierManagerEventBridge(this));
+            var bridge = new CarrierManagerEventBridge(this);
+            mCarrierManager.SetEventCallback(bridge);
+
+            // Tag 服务：由子类决定实现（GAS 模块覆盖为 ECS 实现）
+            mTagService = CreateTagService() ?? new CarrierTagService(mCarrierManager);
+            mCarrierManager.SetTagService(mTagService);
+            mTagService.SetEventCallback(bridge);
+            mContainer.Register(mTagService);
 
             // 调用子类初始化
             OnInit();
@@ -174,8 +190,15 @@ namespace NexusFramework
             InitializeRegisteredComponents();
 
             mInitialized = true;
+
+            // 初始化完成回调——此时 Service/Model 均已就绪。
+            // 必须在 State 置位与 AfterInit 事件之前调用：订阅者收到
+            // ArchitectureAfterInitEvent 后会认为一切就绪，若此时本回调尚未执行
+            // （如 GAS 的 Tag 层级烘焙），它们会读到不完整的状态。
+            OnInitialized();
+
             State = ArchitectureState.Initialized;
-            
+
             // 发送初始化后事件
             SendEvent(new ArchitectureAfterInitEvent { ArchitectureId = ArchitectureId });
         }
@@ -215,6 +238,8 @@ namespace NexusFramework
             // 清理所有组件
             DeinitializeAllComponents();
             mTypeEventService.Clear();
+            mTagService?.Dispose();
+            mTagService = null;
             mCarrierManager?.Dispose();
 
             State = ArchitectureState.Shutdown;
@@ -237,6 +262,14 @@ namespace NexusFramework
 
         protected virtual void OnInitialized()
         {
+        }
+
+        /// <summary>
+        ///     创建 Tag 服务实现。GAS 等模块可覆盖为 ECS 驱动的实现。
+        /// </summary>
+        protected virtual ITagService CreateTagService()
+        {
+            return new CarrierTagService(mCarrierManager);
         }
 
         protected virtual void OnPause()
@@ -405,6 +438,13 @@ namespace NexusFramework
         public void OnTagRemoved(CarrierId carrier, string key)
         {
             architecture.SendEvent(new CarrierTagRemovedEvent { Carrier = carrier, Key = key });
+        }
+
+        public void OnCarrierDestroyed(CarrierId carrier)
+        {
+            // 先清理索引再广播：订阅者在回调中反查时不应看到已销毁的载体
+            architecture.GetTagService()?.OnCarrierDestroyed(carrier);
+            architecture.SendEvent(new CarrierDestroyedEvent { Carrier = carrier });
         }
     }
 }

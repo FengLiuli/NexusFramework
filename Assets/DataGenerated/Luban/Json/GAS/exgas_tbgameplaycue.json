@@ -1,56 +1,61 @@
 [
   {
-    "ID": 1,
-    "Name": "Cue_HitSound",
-    "Desc": "Plays a hit sound on effect application",
-    "RequiredTag": null,
-    "ImmunityTag": null,
-    "CueLogic": {
-      "$type": "CuePlaySound",
-      "Param": {
-        "$type": "XParamPlaySound",
-        "AudioClipPath": "Audio/SFX/HitSound",
-        "Volume": 0.8,
-        "Speed": 1.0,
-        "Loop": false,
-        "AudioSourceNodePath": ""
-      }
-    }
-  },
-  {
-    "ID": 2,
-    "Name": "Cue_LogDamage",
-    "Desc": "Logs damage/heal value when effect is applied",
-    "RequiredTag": null,
-    "ImmunityTag": null,
-    "CueLogic": {
-      "$type": "CueLog",
-      "Param": {
-        "$type": "XParamString",
-        "Value": "Effect applied: damage/heal"
-      }
-    }
-  },
-  {
-    "ID": 3,
-    "Name": "Cue_FireEffect",
-    "Desc": "Logging cue for fire effects with tag requirements",
+    "ID": 1001,
+    "Name": "打印日志",
+    "Desc": "用于打印日志",
     "RequiredTag": {
-      "All": [3],
-      "Any": [],
-      "None": []
+      "All": [
+        100,
+        1001
+      ],
+      "Any": [
+        0
+      ],
+      "None": [
+        0
+      ]
     },
     "ImmunityTag": {
-      "All": [],
-      "Any": [],
-      "None": [8]
+      "All": [
+        200,
+        2001
+      ],
+      "Any": [
+        0
+      ],
+      "None": [
+        0
+      ]
     },
     "CueLogic": {
       "$type": "CueLogging",
       "Param": {
-        "$type": "XParamLogging",
-        "Value": "Fire effect triggered!",
-        "Duration": 2.0
+        "Value": "testMessageA",
+        "Duration": 2.5
+      }
+    }
+  },
+  {
+    "ID": 1002,
+    "Name": "打印持续日志",
+    "Desc": "用于打印持续日志",
+    "CueLogic": {
+      "$type": "CueLogging",
+      "Param": {
+        "Value": "testValue2",
+        "Duration": 1.55
+      }
+    }
+  },
+  {
+    "ID": 1003,
+    "Name": "测试3",
+    "Desc": "看看拉屎都",
+    "CueLogic": {
+      "$type": "CueLogging",
+      "Param": {
+        "Value": "卧槽",
+        "Duration": 30
       }
     }
   }

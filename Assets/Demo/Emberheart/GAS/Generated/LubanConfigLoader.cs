@@ -10,6 +10,9 @@ using cfg;
 using NexusFramework.GAS.ECS;
 using UnityEngine;
 using NexusFramework.GAS.Models;
+using Track = NexusFramework.GAS.ECS.Track;
+using TaskClipData = NexusFramework.GAS.ECS.TaskClipData;
+using XParamTimeline = NexusFramework.GAS.ECS.XParamTimeline;
 using XParam = NexusFramework.GAS.ECS.XParam;
 
 namespace NexusFramework.GAS.Config
@@ -228,6 +231,13 @@ namespace NexusFramework.GAS.Config
 
             // 注册标签层级数据
             configModel.RegisterTagHierarchy(GetTagHierarchyData());
+
+            // 注册时间轴技能定义
+            foreach (var timeline in _tables.TbtimelineAbility.DataList)
+            {
+                var param = GetTimelineAbilityParam(timeline.ID);
+                if (param != null) configModel.RegisterTimelineAbility(timeline.ID, param);
+            }
         }
 
 
@@ -670,6 +680,84 @@ namespace NexusFramework.GAS.Config
             return new TagHierarchyData { Tags = nodes };
         }
 
+        /// <summary>通过 ID 获取时间轴技能定义</summary>
+        public NexusFramework.GAS.ECS.XParamTimeline GetTimelineAbilityParam(int id)
+        {
+            if (_tables == null) return null;
+            var data = Tables.TbtimelineAbility.GetOrDefault(id);
+            if (data == null) return null;
+
+            var tracks = new List<Track>();
+            if (data.Tracks != null)
+            {
+                foreach (var cfgTrack in data.Tracks)
+                {
+                    var track = new Track { Name = cfgTrack.Name };
+                    if (cfgTrack.TaskClips != null)
+                    {
+                        foreach (var cfgClip in cfgTrack.TaskClips)
+                        {
+                            track.TaskClips.Add(new TaskClipData
+                            {
+                                Name = cfgClip.Name,
+                                StartTime = cfgClip.StartTime,
+                                EndTime = cfgClip.EndTime,
+                                TaskType = cfgClip.Task?.GetType().Name,
+                                Parameter = CreateAbilityTaskParam(cfgClip.Task)
+                            });
+                        }
+                    }
+                    tracks.Add(track);
+                }
+            }
+
+            return new NexusFramework.GAS.ECS.XParamTimeline(data.ID, data.Name, data.LifeTime,
+                data.ManualEndAbility, tracks);
+        }
+
+        /// <summary>
+        /// 校验配置与运行时的可挂载性。
+        /// 返回问题描述列表；空列表表示全部可挂载。
+        /// </summary>
+        public List<string> ValidateConfigs()
+        {
+            var problems = new List<string>();
+            if (_tables == null) return problems;
+
+            // 技能逻辑：配置的类型名必须能在运行时解析出参数类型
+            foreach (var row in Tables.Tbability.DataList)
+            {
+                if (row.AbilityLogic == null) continue;
+                var logicTypeName = row.AbilityLogic.GetType().Name;
+                if (AbilityLogicFactory.GetAbilityLogicParamType(logicTypeName) == null)
+                {
+                    problems.Add($"技能 {row.ID}('{row.Name}') 的逻辑 '{logicTypeName}' 在运行时不可用（缺少实现或未注册）");
+                }
+            }
+
+            // 技能引用的效果必须存在
+            foreach (var row in Tables.Tbability.DataList)
+            {
+                if (row.Cost > 0 && !Tables.TbgameplayEffect.DataMap.ContainsKey(row.Cost))
+                {
+                    problems.Add($"技能 {row.ID} 的 Cost 指向不存在的效果 {row.Cost}");
+                }
+            }
+
+            // ASC 引用的技能必须存在
+            foreach (var row in Tables.Tbasc.DataList)
+            {
+                if (row.Ability == null) continue;
+                foreach (var abilityId in row.Ability)
+                {
+                    if (Tables.Tbability.DataMap.ContainsKey(abilityId)) continue;
+                    problems.Add($"ASC {row.ID}('{row.Name}') 引用了不存在的技能 {abilityId}");
+                }
+            }
+
+            return problems;
+        }
+
         // =========================================================
         // 多态类型参数创建辅助方法
         // 由生成器根据 cfg.* 命名空间中的类型自动生成
@@ -681,14 +769,19 @@ namespace NexusFramework.GAS.Config
             if (logicData == null) return null;
             var logicTypeName = logicData.GetType().Name;
             var paramType = AbilityLogicFactory.GetAbilityLogicParamType(logicTypeName);
-            if (paramType == null) return null;
+            if (paramType == null)
+            {
+                Debug.LogError($"[LubanConfigLoader] AbilityLogic '{logicTypeName}' 的参数类型未注册，参数将丢失");
+                return null;
+            }
             var param = Activator.CreateInstance(paramType) as XParam;
-            if (param == null) return null;
+            if (param == null)
+            {
+                Debug.LogError($"[LubanConfigLoader] 无法实例化参数类型 '{paramType.Name}'");
+                return null;
+            }
 
-            // 按实际类型赋值
-            // 注意: 泛型参数通过 BeanField/BeanPolymorphicField 特性在运行时反射赋值
-            // 此处预留扩展点——如果字段映射简单可直接通过特性反射填充
-            // 复杂类型（Vector3 等）需在 XParam 实现类的 DecodeExcelData 中处理
+            XParamFiller.Fill(param, logicData);
 
             return param;
         }
@@ -699,9 +792,19 @@ namespace NexusFramework.GAS.Config
             if (cueData == null) return null;
             var cueTypeName = cueData.GetType().Name;
             var paramType = CueHelper.GetCueLogicParamType(cueTypeName);
-            if (paramType == null) return null;
+            if (paramType == null)
+            {
+                Debug.LogError($"[LubanConfigLoader] Cue '{cueTypeName}' 的参数类型未注册，参数将丢失");
+                return null;
+            }
             var param = Activator.CreateInstance(paramType) as XParam;
-            if (param == null) return null;
+            if (param == null)
+            {
+                Debug.LogError($"[LubanConfigLoader] 无法实例化参数类型 '{paramType.Name}'");
+                return null;
+            }
+
+            XParamFiller.Fill(param, cueData);
 
             return param;
         }
@@ -712,9 +815,19 @@ namespace NexusFramework.GAS.Config
             if (mmcData == null) return null;
             var mmcTypeName = mmcData.GetType().Name;
             var paramType = GasMmcHelper.GetMmcParamType(mmcTypeName);
-            if (paramType == null) return null;
+            if (paramType == null)
+            {
+                Debug.LogError($"[LubanConfigLoader] MMC '{mmcTypeName}' 的参数类型未注册，参数将丢失");
+                return null;
+            }
             var param = Activator.CreateInstance(paramType) as XParam;
-            if (param == null) return null;
+            if (param == null)
+            {
+                Debug.LogError($"[LubanConfigLoader] 无法实例化参数类型 '{paramType.Name}'");
+                return null;
+            }
+
+            XParamFiller.Fill(param, mmcData);
 
             return param;
         }
@@ -725,9 +838,19 @@ namespace NexusFramework.GAS.Config
             if (taskData == null) return null;
             var taskTypeName = taskData.GetType().Name;
             var paramType = AbilityLogicFactory.GetAbilityTaskParamType(taskTypeName);
-            if (paramType == null) return null;
+            if (paramType == null)
+            {
+                Debug.LogError($"[LubanConfigLoader] AbilityTask '{taskTypeName}' 的参数类型未注册，参数将丢失");
+                return null;
+            }
             var param = Activator.CreateInstance(paramType) as XParam;
-            if (param == null) return null;
+            if (param == null)
+            {
+                Debug.LogError($"[LubanConfigLoader] 无法实例化参数类型 '{paramType.Name}'");
+                return null;
+            }
+
+            XParamFiller.Fill(param, taskData);
 
             return param;
         }

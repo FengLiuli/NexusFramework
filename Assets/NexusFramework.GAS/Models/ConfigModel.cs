@@ -17,6 +17,7 @@ namespace NexusFramework.GAS.Models
         private Config.TagHierarchyData _tagHierarchy;
         private readonly Dictionary<int, Config.AscConfigData> _ascConfigs = new();
         private readonly Dictionary<int, Config.AttrSetDef> _attrSetDefs = new();
+        private readonly Dictionary<int, XParamTimeline> _timelines = new();
 
         protected override void OnInit() { }
 
@@ -29,6 +30,7 @@ namespace NexusFramework.GAS.Models
             _tagHierarchy = default;
             _ascConfigs.Clear();
             _attrSetDefs.Clear();
+            _timelines.Clear();
         }
 
         // ── 注册 ──
@@ -41,6 +43,9 @@ namespace NexusFramework.GAS.Models
 
         public void RegisterCues(Config.GameplayCueConfig[] configs)
             => _cues = configs;
+
+        public void RegisterTimelineAbility(int id, XParamTimeline timeline)
+            => _timelines[id] = timeline;
 
         public void RegisterMmcs(Config.MMCConfig[] configs)
             => _mmcs = configs;
@@ -76,6 +81,10 @@ namespace NexusFramework.GAS.Models
 
         public Config.AttrSetDef? GetAttrSetDef(int attrSetId)
             => _attrSetDefs.TryGetValue(attrSetId, out var d) ? d : null;
+
+        /// <summary>按 ID 取时间轴定义，不存在返回 null。</summary>
+        public XParamTimeline GetTimelineAbilityParam(int id)
+            => _timelines.TryGetValue(id, out var t) ? t : null;
 
         // ── 从 IConfigLoader 加载 ──
 

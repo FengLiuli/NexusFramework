@@ -1,20 +1,37 @@
 [
   {
+    "ID": 0,
+    "Name": "测试单位",
+    "Desc": "",
+    "Level": 0,
+    "Tag": [],
+    "AttrSet": [
+      2
+    ],
+    "Ability": [
+      1004,
+      1005,
+      1006
+    ]
+  },
+  {
     "ID": 1,
-    "Name": "PlayerASC",
-    "Desc": "Player Ability System Cell",
-    "Level": 1,
-    "Tag": [1, 4],
-    "AttrSet": [1, 2],
-    "Ability": [1, 2, 3]
+    "Name": "测试飞弹",
+    "Desc": "",
+    "Level": 0,
+    "Tag": [],
+    "AttrSet": [
+      3
+    ],
+    "Ability": []
   },
   {
     "ID": 2,
-    "Name": "EnemyASC",
-    "Desc": "Enemy Ability System Cell",
-    "Level": 1,
-    "Tag": [2, 6],
-    "AttrSet": [1],
-    "Ability": [3]
+    "Name": "测试武器",
+    "Desc": "",
+    "Level": 0,
+    "Tag": [],
+    "AttrSet": [],
+    "Ability": []
   }
 ]

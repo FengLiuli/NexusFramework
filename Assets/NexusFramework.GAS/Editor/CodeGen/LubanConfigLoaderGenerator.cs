@@ -47,6 +47,12 @@ namespace NexusFramework.GAS.Editor
             writer.WriteLine("using NexusFramework.GAS.ECS;");
             writer.WriteLine("using UnityEngine;");
             writer.WriteLine("using NexusFramework.GAS.Models;");
+            // cfg 与 ECS 存在大量同名类型（Track / XParamTimeline / AbilityTaskBase ...），
+            // 裸名会触发 CS0104 歧义。把生成产物实际用到的名字显式指向 ECS 侧；
+            // cfg 侧一律经 cfg. 前缀引用。
+            writer.WriteLine("using Track = NexusFramework.GAS.ECS.Track;");
+            writer.WriteLine("using TaskClipData = NexusFramework.GAS.ECS.TaskClipData;");
+            writer.WriteLine("using XParamTimeline = NexusFramework.GAS.ECS.XParamTimeline;");
             writer.WriteLine("using XParam = NexusFramework.GAS.ECS.XParam;");
             writer.WriteLine("");
         }
@@ -156,7 +162,8 @@ namespace NexusFramework.GAS.Editor
                 WriteMmcConfigMethod(writer);
                 WriteAscConfigMethod(writer);
                 WriteTagHierarchyMethod(writer);
-                // WriteTimelineAbilityMethod(writer); // TODO: 需要运行时支持 TimelineAbility 后再实现
+                WriteTimelineAbilityMethod(writer);
+                WriteValidateMethod(writer);
                 WriteUtilityMethods(writer);
             }
             writer.Indent--;
@@ -754,15 +761,128 @@ namespace NexusFramework.GAS.Editor
             writer.WriteLine("");
         }
 
-        private static void WriteTimelineAbilityMethod(IndentedWriter writer)
+        /// <summary>
+        ///     生成配置自检方法：报告"配了但运行时无法挂载"的技能。
+        ///     返回结构化问题列表而非直接打日志——调用方自行决定是记录
+        ///     还是断言（在测试里直接 LogError 会被 Test Framework 判为失败，
+        ///     掩盖真正的断言信息）。
+        /// </summary>
+        private static void WriteValidateMethod(IndentedWriter writer)
         {
-            writer.WriteLine("/// <summary>通过 ID 获取 TimelineAbility 参数（暂未实现）</summary>");
-            writer.WriteLine("public XParamTimeline GetTimelineAbilityParam(int id)");
+            writer.WriteLine("/// <summary>");
+            writer.WriteLine("/// 校验配置与运行时的可挂载性。");
+            writer.WriteLine("/// 返回问题描述列表；空列表表示全部可挂载。");
+            writer.WriteLine("/// </summary>");
+            writer.WriteLine("public List<string> ValidateConfigs()");
             writer.WriteLine("{");
             writer.Indent++;
             {
-                writer.WriteLine("Debug.LogWarning($\"[LubanConfigLoader] TimelineAbility not implemented yet. ID:{id}\");");
-                writer.WriteLine("return default;");
+                writer.WriteLine("var problems = new List<string>();");
+                writer.WriteLine("if (_tables == null) return problems;");
+                writer.WriteLine("");
+
+                writer.WriteLine("// 技能逻辑：配置的类型名必须能在运行时解析出参数类型");
+                writer.WriteLine("foreach (var row in Tables.Tbability.DataList)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("if (row.AbilityLogic == null) continue;");
+                writer.WriteLine("var logicTypeName = row.AbilityLogic.GetType().Name;");
+                writer.WriteLine("if (AbilityLogicFactory.GetAbilityLogicParamType(logicTypeName) == null)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("problems.Add($\"技能 {row.ID}('{row.Name}') 的逻辑 '{logicTypeName}' 在运行时不可用（缺少实现或未注册）\");");
+                writer.Indent--;
+                writer.WriteLine("}");
+                writer.Indent--;
+                writer.WriteLine("}");
+                writer.WriteLine("");
+
+                writer.WriteLine("// 技能引用的效果必须存在");
+                writer.WriteLine("foreach (var row in Tables.Tbability.DataList)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("if (row.Cost > 0 && !Tables.TbgameplayEffect.DataMap.ContainsKey(row.Cost))");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("problems.Add($\"技能 {row.ID} 的 Cost 指向不存在的效果 {row.Cost}\");");
+                writer.Indent--;
+                writer.WriteLine("}");
+                writer.Indent--;
+                writer.WriteLine("}");
+                writer.WriteLine("");
+
+                writer.WriteLine("// ASC 引用的技能必须存在");
+                writer.WriteLine("foreach (var row in Tables.Tbasc.DataList)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("if (row.Ability == null) continue;");
+                writer.WriteLine("foreach (var abilityId in row.Ability)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("if (Tables.Tbability.DataMap.ContainsKey(abilityId)) continue;");
+                writer.WriteLine("problems.Add($\"ASC {row.ID}('{row.Name}') 引用了不存在的技能 {abilityId}\");");
+                writer.Indent--;
+                writer.WriteLine("}");
+                writer.Indent--;
+                writer.WriteLine("}");
+                writer.WriteLine("");
+
+                writer.WriteLine("return problems;");
+            }
+            writer.Indent--;
+            writer.WriteLine("}");
+            writer.WriteLine("");
+        }
+
+        private static void WriteTimelineAbilityMethod(IndentedWriter writer)
+        {
+            writer.WriteLine("/// <summary>通过 ID 获取时间轴技能定义</summary>");
+            writer.WriteLine("public NexusFramework.GAS.ECS.XParamTimeline GetTimelineAbilityParam(int id)");
+            writer.WriteLine("{");
+            writer.Indent++;
+            {
+                writer.WriteLine("if (_tables == null) return null;");
+                writer.WriteLine("var data = Tables.TbtimelineAbility.GetOrDefault(id);");
+                writer.WriteLine("if (data == null) return null;");
+                writer.WriteLine("");
+
+                writer.WriteLine("var tracks = new List<Track>();");
+                writer.WriteLine("if (data.Tracks != null)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("foreach (var cfgTrack in data.Tracks)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("var track = new Track { Name = cfgTrack.Name };");
+                writer.WriteLine("if (cfgTrack.TaskClips != null)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("foreach (var cfgClip in cfgTrack.TaskClips)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("track.TaskClips.Add(new TaskClipData");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("Name = cfgClip.Name,");
+                writer.WriteLine("StartTime = cfgClip.StartTime,");
+                writer.WriteLine("EndTime = cfgClip.EndTime,");
+                writer.WriteLine("TaskType = cfgClip.Task?.GetType().Name,");
+                writer.WriteLine("Parameter = CreateAbilityTaskParam(cfgClip.Task)");
+                writer.Indent--;
+                writer.WriteLine("});");
+                writer.Indent--;
+                writer.WriteLine("}");
+                writer.Indent--;
+                writer.WriteLine("}");
+                writer.WriteLine("tracks.Add(track);");
+                writer.Indent--;
+                writer.WriteLine("}");
+                writer.Indent--;
+                writer.WriteLine("}");
+                writer.WriteLine("");
+
+                writer.WriteLine("return new NexusFramework.GAS.ECS.XParamTimeline(data.ID, data.Name, data.LifeTime,");
+                writer.WriteLine("    data.ManualEndAbility, tracks);");
             }
             writer.Indent--;
             writer.WriteLine("}");
@@ -989,6 +1109,16 @@ namespace NexusFramework.GAS.Editor
 
                 writer.WriteLine("// 注册标签层级数据");
                 writer.WriteLine("configModel.RegisterTagHierarchy(GetTagHierarchyData());");
+                writer.WriteLine("");
+
+                writer.WriteLine("// 注册时间轴技能定义");
+                writer.WriteLine("foreach (var timeline in _tables.TbtimelineAbility.DataList)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("var param = GetTimelineAbilityParam(timeline.ID);");
+                writer.WriteLine("if (param != null) configModel.RegisterTimelineAbility(timeline.ID, param);");
+                writer.Indent--;
+                writer.WriteLine("}");
             }
             writer.Indent--;
             writer.WriteLine("}");
@@ -1012,15 +1142,24 @@ namespace NexusFramework.GAS.Editor
                 writer.WriteLine("if (logicData == null) return null;");
                 writer.WriteLine("var logicTypeName = logicData.GetType().Name;");
                 writer.WriteLine("var paramType = AbilityLogicFactory.GetAbilityLogicParamType(logicTypeName);");
-                writer.WriteLine("if (paramType == null) return null;");
+                writer.WriteLine("if (paramType == null)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("Debug.LogError($\"[LubanConfigLoader] AbilityLogic '{logicTypeName}' 的参数类型未注册，参数将丢失\");");
+                writer.WriteLine("return null;");
+                writer.Indent--;
+                writer.WriteLine("}");
                 writer.WriteLine("var param = Activator.CreateInstance(paramType) as XParam;");
-                writer.WriteLine("if (param == null) return null;");
+                writer.WriteLine("if (param == null)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("Debug.LogError($\"[LubanConfigLoader] 无法实例化参数类型 '{paramType.Name}'\");");
+                writer.WriteLine("return null;");
+                writer.Indent--;
+                writer.WriteLine("}");
                 writer.WriteLine("");
 
-                writer.WriteLine("// 按实际类型赋值");
-                writer.WriteLine("// 注意: 泛型参数通过 BeanField/BeanPolymorphicField 特性在运行时反射赋值");
-                writer.WriteLine("// 此处预留扩展点——如果字段映射简单可直接通过特性反射填充");
-                writer.WriteLine("// 复杂类型（Vector3 等）需在 XParam 实现类的 DecodeExcelData 中处理");
+                writer.WriteLine("XParamFiller.Fill(param, logicData);");
                 writer.WriteLine("");
 
                 writer.WriteLine("return param;");
@@ -1038,9 +1177,24 @@ namespace NexusFramework.GAS.Editor
                 writer.WriteLine("if (cueData == null) return null;");
                 writer.WriteLine("var cueTypeName = cueData.GetType().Name;");
                 writer.WriteLine("var paramType = CueHelper.GetCueLogicParamType(cueTypeName);");
-                writer.WriteLine("if (paramType == null) return null;");
+                writer.WriteLine("if (paramType == null)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("Debug.LogError($\"[LubanConfigLoader] Cue '{cueTypeName}' 的参数类型未注册，参数将丢失\");");
+                writer.WriteLine("return null;");
+                writer.Indent--;
+                writer.WriteLine("}");
                 writer.WriteLine("var param = Activator.CreateInstance(paramType) as XParam;");
-                writer.WriteLine("if (param == null) return null;");
+                writer.WriteLine("if (param == null)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("Debug.LogError($\"[LubanConfigLoader] 无法实例化参数类型 '{paramType.Name}'\");");
+                writer.WriteLine("return null;");
+                writer.Indent--;
+                writer.WriteLine("}");
+                writer.WriteLine("");
+
+                writer.WriteLine("XParamFiller.Fill(param, cueData);");
                 writer.WriteLine("");
 
                 writer.WriteLine("return param;");
@@ -1058,9 +1212,24 @@ namespace NexusFramework.GAS.Editor
                 writer.WriteLine("if (mmcData == null) return null;");
                 writer.WriteLine("var mmcTypeName = mmcData.GetType().Name;");
                 writer.WriteLine("var paramType = GasMmcHelper.GetMmcParamType(mmcTypeName);");
-                writer.WriteLine("if (paramType == null) return null;");
+                writer.WriteLine("if (paramType == null)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("Debug.LogError($\"[LubanConfigLoader] MMC '{mmcTypeName}' 的参数类型未注册，参数将丢失\");");
+                writer.WriteLine("return null;");
+                writer.Indent--;
+                writer.WriteLine("}");
                 writer.WriteLine("var param = Activator.CreateInstance(paramType) as XParam;");
-                writer.WriteLine("if (param == null) return null;");
+                writer.WriteLine("if (param == null)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("Debug.LogError($\"[LubanConfigLoader] 无法实例化参数类型 '{paramType.Name}'\");");
+                writer.WriteLine("return null;");
+                writer.Indent--;
+                writer.WriteLine("}");
+                writer.WriteLine("");
+
+                writer.WriteLine("XParamFiller.Fill(param, mmcData);");
                 writer.WriteLine("");
 
                 writer.WriteLine("return param;");
@@ -1078,9 +1247,24 @@ namespace NexusFramework.GAS.Editor
                 writer.WriteLine("if (taskData == null) return null;");
                 writer.WriteLine("var taskTypeName = taskData.GetType().Name;");
                 writer.WriteLine("var paramType = AbilityLogicFactory.GetAbilityTaskParamType(taskTypeName);");
-                writer.WriteLine("if (paramType == null) return null;");
+                writer.WriteLine("if (paramType == null)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("Debug.LogError($\"[LubanConfigLoader] AbilityTask '{taskTypeName}' 的参数类型未注册，参数将丢失\");");
+                writer.WriteLine("return null;");
+                writer.Indent--;
+                writer.WriteLine("}");
                 writer.WriteLine("var param = Activator.CreateInstance(paramType) as XParam;");
-                writer.WriteLine("if (param == null) return null;");
+                writer.WriteLine("if (param == null)");
+                writer.WriteLine("{");
+                writer.Indent++;
+                writer.WriteLine("Debug.LogError($\"[LubanConfigLoader] 无法实例化参数类型 '{paramType.Name}'\");");
+                writer.WriteLine("return null;");
+                writer.Indent--;
+                writer.WriteLine("}");
+                writer.WriteLine("");
+
+                writer.WriteLine("XParamFiller.Fill(param, taskData);");
                 writer.WriteLine("");
 
                 writer.WriteLine("return param;");

@@ -29,6 +29,7 @@ namespace NexusFramework.GAS.Tests
         public TagHierarchyData ParseTagHierarchy(string json) => default;
         public AscConfigData? GetAscConfig(int ascId) => null;
         public AttrSetDef? GetAttrSetDef(int attrSetId) => null;
+        public XParamTimeline GetTimelineAbilityParam(int id) => null;
 
         /// <summary>将测试数据注册到 ConfigModel</summary>
         public static void Populate(ConfigModel model)
@@ -86,6 +87,21 @@ namespace NexusFramework.GAS.Tests
             model.RegisterAbility(1, new AbilityComponentConfig[]
             {
                 new TestAbilityLogicConfig()
+            });
+
+            // 标签层级：点分路径表达父子关系。
+            // 每级都需独立一行，EcsTagService 按此推导父链并烘焙 SingletonGameplayTagMap。
+            model.RegisterTagHierarchy(new TagHierarchyData
+            {
+                Tags = new[]
+                {
+                    new TagNode { Code = 1, Name = "Faction" },
+                    new TagNode { Code = 11, Name = "Faction.Player" },
+                    new TagNode { Code = 12, Name = "Faction.Enemy" },
+                    new TagNode { Code = 2, Name = "State" },
+                    new TagNode { Code = 21, Name = "State.Stunned" },
+                    new TagNode { Code = 22, Name = "State.Burning" }
+                }
             });
         }
     }
@@ -176,10 +192,34 @@ namespace NexusFramework.GAS.Tests
 
     internal class TestAbilityLogicConfig : AbilityComponentConfig
     {
+        /// <summary>为空时挂 NullAbilityLogic，否则按类型名经工厂创建。</summary>
+        public string AbilityLogicType;
+
+        public XParam Param;
+
         public override void LoadToGameplayAbilityEntity(Entity ability)
         {
+            AbilityLogicBase logic;
+
+            if (string.IsNullOrEmpty(AbilityLogicType))
+            {
+                logic = new NullAbilityLogic(ability, _entityManager);
+            }
+            else
+            {
+                logic = AbilityLogicFactory.TryCreateAbilityLogic(AbilityLogicType, ability);
+                if (logic == null)
+                {
+                    UnityEngine.Debug.LogError(
+                        $"[Test] AbilityLogic '{AbilityLogicType}' 未注册");
+                    return;
+                }
+
+                logic.SetParam(Param);
+            }
+
             _entityManager.AddComponent<MCAbilityLogic>(ability);
-            _entityManager.SetComponentData(ability, new MCAbilityLogic(new NullAbilityLogic(ability, _entityManager)));
+            _entityManager.SetComponentData(ability, new MCAbilityLogic(logic));
         }
     }
 
