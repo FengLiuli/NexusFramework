@@ -10,3 +10,8 @@
 *.dylib binary
 *.a binary
 *.lib binary
+
+# Luban 构建产物（Tools/）：整棵树不做行尾规范化、不参与文本 diff。
+# 这批文件由 Tools/build-luban.bat 生成，其中的 .json/.xml/.sbn 若被 EOL 规范化，
+# 每次重建都会产生永久性的假 diff。
+/Tools/** -text -diff

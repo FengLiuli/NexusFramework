@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "luban": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": [
+        "D:/Work/Unity/NexusFramework/Tools/Luban.Mcp/Luban.Mcp.dll"
+      ],
+      "env": {
+        "LUBAN_AGENT_DLL": "D:/Work/Unity/NexusFramework/Tools/Luban.Agent/Luban.Agent.dll",
+        "LUBAN_DLL": "D:/Work/Unity/NexusFramework/Tools/Luban/Luban.dll"
+      }
+    }
+  }
+}
