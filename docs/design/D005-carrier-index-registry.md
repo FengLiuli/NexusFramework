@@ -486,12 +486,21 @@ public class SomethingService : AbstractService
 
 | 现有 | 迁移到 | 说明 |
 |---|---|---|
-| `GASEntityMapModel` 的 4 个字典 | 2 个 `CarrierIndex` + 保留 `GASEntityRef` 绑定逻辑 | ⚠ **`Entity↔GameObject` 部分不可直接迁移**，见下 |
+| `GASEntityMapModel` 的 4 个字典 | 2 个 `CarrierIndex`（CarrierId↔Entity、CarrierId↔GameObject）+ 1 张轻量 `GameObject→Entity` 查表 | ✅ 已迁移（P1），见下 |
 | `CarrierManager.traitReverseIndex` | 内部自注册 `CarrierGroupIndex<Type>("trait.reverse")` | 可选重构（P2），**非强制项** |
 
-> **⚠ `Entity ↔ GameObject` 迁移限制（重要）**：现有 `GASEntityMapModel.GetGameObject` 有**惰性过期剔除**——GameObject 被外部 `Destroy` 后 Unity 重载为「假 null」，此处主动清表（`GASEntityMapModel.cs:108-120`），且 `IsGameObjectBound` 做 null 守卫（`:129-132`）。普通 `CarrierIndex<GameObject>` **没有这层语义**：假 null 的 GO 会被字典强引用无法 GC，且 `TryGet` 会持续吐出已销毁对象。**处置**：① 为引用类型 `TValue` 提供可选有效性谓词（`Func<TValue,bool>`），`TryGet`/`OnCarrierRemoved` 时过滤；或 ② `Entity↔GameObject` 保留在 Model 内、只把 `CarrierId↔Entity` 迁为索引。P0 采用 ②（最小回归面），谓词方案列入 §七 Q5。
+> **✅ P1 实际方案（2026-10-10 完成）**：两条**以 Carrier 为主语**的链迁移到 `CarrierIndex`——
+> `CarrierId↔Entity`、`CarrierId↔GameObject`（后者以 `CarrierId` 为键）。而
+> **`Entity↔GameObject` 无需独立存储**：由 `Entity → CarrierId`（实体索引反查）+ `CarrierId → GameObject` 组合推导，
+> 仅需一张 `GameObject → Entity` 查表。故 4 字典 → 2 索引 + 1 查表，且载体销毁时两条主链**自动清理**（无需 Model 手写订阅）。
 >
-> **`CarrierId ↔ Entity` 迁移正确性**：`Entity` 是 `IEquatable` 结构体，作键无装箱、哈希正确，可直接迁移。
+> **`GameObject → Entity` 为何仍手写**：`Entity→CarrierId` 是 O(1)（索引反查），但"由 GO 反查 Entity"需要一张 GO 表；
+> 且此表以 `GameObject` 为键——与**假 null** 及"一个 GO 只能绑一个 Entity"的拒绝语义耦合，属 Model 层策略，不塞进通用容器。
+>
+> **假 null 惰性过期**：`GetGameObject` 保留过期剔除（GO 销毁后重载 null → 清表返回 null），
+> 但**不放进容器**——容器保持纯净，过期判定是 Model 的职责（容器 `isValid` 谓词方案未采用，见 §七 Q5）。
+>
+> **`CarrierId↔Entity` 作键正确性**：`Entity` 是 `IEquatable` 结构体，作键无装箱、哈希正确。
 
 > **建议**：先落地框架 + 单元测试，`GASEntityMapModel` 改造作为**第二期**独立验证。首期不动 GAS，降低回归面。
 

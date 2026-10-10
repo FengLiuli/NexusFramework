@@ -24,11 +24,11 @@ namespace NexusFramework.DataCarrier
         private ICarrierManager _owner;
 
         /// <summary>
-        ///     载体失去绑定时触发（subject = 该载体）。涵盖全部移除路径：
+        ///     载体失去绑定时触发（carrier = 该载体，value = 被移除的值）。涵盖全部移除路径：
         ///     显式 <see cref="Unbind" />、值冲突驱逐旧主、自我重绑、销毁清理。
         ///     供宿主同步其它派生索引（避免「一个载体在两张表」的不一致）。
         /// </summary>
-        public event Action<CarrierId> OnBindingRemoved;
+        public event Action<CarrierId, TValue> OnBindingRemoved;
 
         /// <param name="name">表名。同一 Architecture 内唯一，标识业务语义。</param>
         public CarrierIndex(string name)
@@ -67,7 +67,7 @@ namespace NexusFramework.DataCarrier
             if (_reverse.TryGetValue(value, out var oldOwner) && oldOwner != carrier)
             {
                 _forward.Remove(oldOwner);
-                OnBindingRemoved?.Invoke(oldOwner);
+                OnBindingRemoved?.Invoke(oldOwner, value);
             }
 
             _forward[carrier] = value;
@@ -84,7 +84,7 @@ namespace NexusFramework.DataCarrier
             if (_reverse.TryGetValue(value, out var owner) && owner == carrier)
                 _reverse.Remove(value);
 
-            OnBindingRemoved?.Invoke(carrier);
+            OnBindingRemoved?.Invoke(carrier, value);
             return true;
         }
 
@@ -106,7 +106,7 @@ namespace NexusFramework.DataCarrier
                 _forward.Remove(carrier);
                 if (_reverse.TryGetValue(value, out var owner) && owner == carrier) // 所有权守卫
                     _reverse.Remove(value);
-                OnBindingRemoved?.Invoke(carrier);
+                OnBindingRemoved?.Invoke(carrier, value);
             }
 
             // ── 角色 B：载体作被引用值（仅 TValue == CarrierId）──

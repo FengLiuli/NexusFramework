@@ -165,7 +165,8 @@ namespace NexusFramework.Core.Tests
         {
             var index = new CarrierIndex<int>("test");
             var oldOwner = CarrierId.Invalid;
-            index.OnBindingRemoved += v => oldOwner = v;
+            var evictedValue = 0;
+            index.OnBindingRemoved += (c, v) => { oldOwner = c; evictedValue = v; };
 
             var a = manager.CreateCarrier("Test");
             var b = manager.CreateCarrier("Test");
@@ -173,6 +174,7 @@ namespace NexusFramework.Core.Tests
             index.Bind(b, 3); // 驱逐 a
 
             Assert.That(oldOwner, Is.EqualTo(a));
+            Assert.That(evictedValue, Is.EqualTo(3));
         }
 
         [Test]
