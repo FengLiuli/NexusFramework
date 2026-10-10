@@ -47,6 +47,22 @@ namespace NexusFramework.DataCarrier
         IEnumerable<CarrierId> FindCarriersWithTrait<T>() where T : class, IDataTrait;
         IEnumerable<CarrierId> FindCarriersWithTraits(params Type[] traitTypes);
 
+        // 索引表管理
+        /// <summary>注册索引表（以 index.Name 为键）。重名不同实例被拒绝（保留先者）。</summary>
+        void RegisterIndex(ICarrierIndex index);
+
+        /// <summary>按表名注销。返回是否确实移除。</summary>
+        bool UnregisterIndex(string name);
+
+        /// <summary>按表名获取（非泛型）。不存在返回 null。</summary>
+        ICarrierIndex GetIndex(string name);
+
+        /// <summary>按表名 + 类型安全获取。名字不存在或类型不符返回 false。</summary>
+        bool TryGetIndex<TIndex>(string name, out TIndex index) where TIndex : class, ICarrierIndex;
+
+        /// <summary>全部索引（快照副本，用于诊断）。</summary>
+        IReadOnlyCollection<ICarrierIndex> GetAllIndexes();
+
         // 序列化
         string SerializeCarrier(CarrierId carrierId);
         CarrierId DeserializeCarrier(string json);
@@ -97,6 +113,8 @@ namespace NexusFramework.DataCarrier
                 carriersByType.Clear();
                 nextUniqueIds.Clear();
                 traitReverseIndex.Clear();
+                indexesByTable.Clear();
+                disposed = true;
             }
         }
 
@@ -112,6 +130,8 @@ namespace NexusFramework.DataCarrier
             carriersByType = new Dictionary<ushort, HashSet<CarrierId>>();
             nextUniqueIds = new Dictionary<ushort, ulong>();
             traitReverseIndex = new Dictionary<Type, HashSet<CarrierId>>();
+            disposed = false; // 供 Architecture 重启复用同一实例：清除关闭标志
+            // 注意：不重建 indexesByTable——避免清掉先于本 Init 执行的 RegisterIndex（见 D005 §4.4）。
         }
 
         public void Deinit()
@@ -122,6 +142,7 @@ namespace NexusFramework.DataCarrier
             carriersByType.Clear();
             nextUniqueIds.Clear();
             traitReverseIndex.Clear();
+            lock (lockObject) indexesByTable.Clear();
         }
 
         #region 数据存储
@@ -137,6 +158,13 @@ namespace NexusFramework.DataCarrier
 
         // Trait 类型反向索引（优化 FindCarriersWithTrait）
         private Dictionary<Type, HashSet<CarrierId>> traitReverseIndex;
+
+        // 索引表注册表（表名 → 索引），生命周期托管：DestroyCarrier 派发清理。
+        // 注意：不在 Init 中重建——IOCContainer 的 InitAll 遍历顺序不保证，
+        // 若 CarrierManager.Init（清空）晚于 Model 的注册（RegisterCarrierIndex）会静默吞掉注册。
+        // 故字段在声明处初始化，仅 Deinit/Dispose 清空。见 D005 §4.4。
+        private readonly Dictionary<string, ICarrierIndex> indexesByTable = new();
+        private bool disposed;
 
         // 事件回调（由外部 Architecture 注入）
         private ICarrierEventCallback eventCallback;
@@ -282,6 +310,8 @@ namespace NexusFramework.DataCarrier
             if (!carrierId.IsValid || carrierId.FrameworkId != frameworkId)
                 return false;
 
+            // 索引快照：与移除在同一把锁内取，保证「快照 == 已移除」原子。
+            ICarrierIndex[] indexSnapshot;
             lock (lockObject)
             {
                 // 存在性检查必须在锁内：IsCarrierValid 读的 carrierTraits
@@ -306,11 +336,34 @@ namespace NexusFramework.DataCarrier
                 // 给该 typeId 留下会被 GetCarrierCount 计入的幽灵条目。
                 if (carriersByType.TryGetValue(carrierId.TypeId, out var carriersOfType))
                     carriersOfType.Remove(carrierId);
+
+                indexSnapshot = new ICarrierIndex[indexesByTable.Count];
+                indexesByTable.Values.CopyTo(indexSnapshot, 0);
             }
 
-            // 锁外广播：接收方（如 ITagService）在自己的锁内清理索引。
-            // 在锁内调用会把两个独立的锁嵌套起来，徒增死锁面。
-            eventCallback?.OnCarrierDestroyed(carrierId);
+            // 锁外派发：接收方（业务索引）在自己的状态下清理，避免锁序嵌套。
+            // 逐条隔离异常——某个业务索引抛异常不得连累其余索引与销毁广播。
+            try
+            {
+                for (var i = 0; i < indexSnapshot.Length; i++)
+                {
+                    try
+                    {
+                        indexSnapshot[i].OnCarrierRemoved(carrierId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError(
+                            $"[CarrierManager] index '{indexSnapshot[i].Name}' OnCarrierRemoved failed: {ex.Message}");
+                    }
+                }
+            }
+            finally
+            {
+                // 无论索引清理是否失败，都必须广播——Tag 清理与订阅者依赖它。
+                eventCallback?.OnCarrierDestroyed(carrierId);
+            }
+
             return true;
         }
 
@@ -484,6 +537,82 @@ namespace NexusFramework.DataCarrier
                 }
 
                 return result?.ToList() ?? Enumerable.Empty<CarrierId>();
+            }
+        }
+
+        #endregion
+
+        #region 索引表管理
+
+        public void RegisterIndex(ICarrierIndex index)
+        {
+            if (index == null || string.IsNullOrEmpty(index.Name))
+            {
+                Debug.LogWarning("[CarrierManager] RegisterIndex skipped: null index or empty name");
+                return;
+            }
+
+            lock (lockObject)
+            {
+                if (disposed)
+                {
+                    Debug.LogWarning($"[CarrierManager] RegisterIndex skipped: manager disposed (table '{index.Name}')");
+                    return;
+                }
+
+                if (indexesByTable.TryGetValue(index.Name, out var existing))
+                {
+                    if (ReferenceEquals(existing, index)) return; // 同实例重复注册 → no-op
+                    // 重名不同实例 → 拒绝覆盖，保留先者：
+                    // 「改表 = 改数据，不是换表」——变更表内条目，而非注册同名新表替换整表。
+                    Debug.LogWarning(
+                        $"[CarrierManager] RegisterIndex skipped: table name '{index.Name}' already registered by {existing.GetType().Name}");
+                    return;
+                }
+
+                indexesByTable[index.Name] = index;
+            }
+
+            // 注入 owner，供索引在写入前校验载体有效性（见 ICarrierIndexOwner）。
+            if (index is ICarrierIndexOwner owned) owned.SetOwner(this);
+        }
+
+        public bool UnregisterIndex(string name)
+        {
+            lock (lockObject)
+            {
+                return indexesByTable.Remove(name);
+            }
+        }
+
+        public ICarrierIndex GetIndex(string name)
+        {
+            lock (lockObject)
+            {
+                return indexesByTable.GetValueOrDefault(name);
+            }
+        }
+
+        public bool TryGetIndex<TIndex>(string name, out TIndex index) where TIndex : class, ICarrierIndex
+        {
+            lock (lockObject)
+            {
+                if (indexesByTable.TryGetValue(name, out var v) && v is TIndex typed)
+                {
+                    index = typed;
+                    return true;
+                }
+
+                index = null;
+                return false;
+            }
+        }
+
+        public IReadOnlyCollection<ICarrierIndex> GetAllIndexes()
+        {
+            lock (lockObject)
+            {
+                return indexesByTable.Values.ToArray(); // 快照，非活集合
             }
         }
 

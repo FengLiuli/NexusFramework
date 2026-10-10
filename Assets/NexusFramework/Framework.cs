@@ -538,6 +538,34 @@ namespace NexusFramework
         }
     }
 
+    /// <summary>
+    ///     ICanGetCarrier索引表扩展方法 - 注册 / 注销 / 按表名取用 Carrier 索引。
+    ///     索引以「表名」标识业务语义，生命周期托管给 CarrierManager（销毁自动清理）。
+    /// </summary>
+    public static class CanGetCarrierIndexExtension
+    {
+        /// <summary>注册索引表并返回它，便于字段内联注册。重名（不同实例）被拒绝。</summary>
+        public static TIndex RegisterCarrierIndex<TIndex>(this ICanGetCarrier self, TIndex index)
+            where TIndex : class, ICarrierIndex
+        {
+            self.Architecture.GetCarrierManager().RegisterIndex(index);
+            return index;
+        }
+
+        /// <summary>按表名注销索引。返回是否确实移除。</summary>
+        public static bool UnregisterCarrierIndex(this ICanGetCarrier self, string name)
+        {
+            return self.Architecture.GetCarrierManager().UnregisterIndex(name);
+        }
+
+        /// <summary>按表名 + 类型安全取用索引。名字不存在或类型不符返回 false。</summary>
+        public static bool TryGetCarrierIndex<TIndex>(this ICanGetCarrier self, string name, out TIndex index)
+            where TIndex : class, ICarrierIndex
+        {
+            return self.Architecture.GetCarrierManager().TryGetIndex(name, out index);
+        }
+    }
+
     #endregion
 
     #region Event Service Support
