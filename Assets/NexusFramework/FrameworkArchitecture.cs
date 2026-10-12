@@ -137,7 +137,7 @@ namespace NexusFramework
 
         private readonly IOCContainer mContainer = new();
         private readonly TypeEventService mTypeEventService = new();
-        private readonly CarrierManager mCarrierManager = new CarrierManager();
+        private readonly CarrierManager mCarrierManager;
         private ITagService mTagService;
         private bool mInitialized;
 
@@ -149,12 +149,18 @@ namespace NexusFramework
         {
             // 无参构造器生成默认ID（用于特殊情况）
             ArchitectureId = 0;
+            // 必须在构造函数体内创建 CarrierManager，而不能用字段初始化器：
+            // 字段初始化器先于构造函数体运行，那时 ArchitectureId 尚未赋值，会被固定为 0。
+            mCarrierManager = new CarrierManager(ArchitectureId);
         }
 
         protected Architecture(byte instanceId)
         {
             // 带参构造器使用指定ID（推荐使用）
             ArchitectureId = instanceId;
+            // 以本架构 ID 作为 CarrierId 的框架位（高8位），隔离不同架构的载体命名空间。
+            // 因此 ArchitectureId 必须全局唯一——由 ArchitectureFactory 的 ID 分配器保证。
+            mCarrierManager = new CarrierManager(ArchitectureId);
         }
 
         #endregion
