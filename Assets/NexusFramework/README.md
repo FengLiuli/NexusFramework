@@ -146,4 +146,4 @@ public sealed class GameBootstrap : MonoBehaviour
 
 | 关联包 | 版本 | 说明 |
 |---|---|---|
-| `com.nexusframework.gas` | 2.0.0 | 依赖本包 2.0.0；已验证 2.0.x；Unity 2022.3 |
+| `com.nexusframework.gas` | 2.0.0 | 依赖本包 2.0.0；Unity 2022.3 |

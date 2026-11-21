@@ -3,7 +3,7 @@
 本文件记录 `com.nexusframework.gas` 的版本变更。版本号规则见
 [D009](https://github.com/FengLiuli/NexusFramework/blob/main/docs/design/D009-upm-package-versioning.md)。
 
-## [2.0.0] - 2026-11-20
+## [2.0.0] - 2026-11-21
 
 首个正式版本。此前没有已发布版本，因此不存在从旧版本迁移的路径。
 
