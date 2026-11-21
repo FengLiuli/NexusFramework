@@ -87,3 +87,6 @@ crashlytics-build.properties
 # Pipeline run_script staging area: agents write throwaway C# here (must live outside
 # Assets/ to avoid import/domain-reload). Never a source of truth — safe to ignore.
 /AgentScripts/
+
+# Unity Test Framework outputs. Performance baselines are recorded in docs/progress.
+/TestResults/
