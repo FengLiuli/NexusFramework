@@ -73,7 +73,7 @@ namespace NexusFramework.GAS.Tests.ECS
         }
 
         /// <summary>构造一条挂 ALTimeline 逻辑的能力并授予给载体。</summary>
-        private CarrierId GrantTimelineAbility()
+        private int GrantTimelineAbility()
         {
             _configModel.RegisterAbility(900, new AbilityComponentConfig[]
             {

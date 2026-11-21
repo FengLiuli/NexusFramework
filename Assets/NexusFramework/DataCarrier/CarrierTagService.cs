@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using NexusFramework.Identity;
 using UnityEngine;
 
 namespace NexusFramework.DataCarrier
@@ -15,16 +16,22 @@ namespace NexusFramework.DataCarrier
         private readonly object lockObject = new();
 
         /// <summary>Tag 键与运行时槽位的双向映射，含祖先链推导。</summary>
-        private readonly TagRuntimeIndex tagIndex = new();
+        private readonly TagRuntimeIndex tagIndex;
+
+        /// <summary>
+        ///     索引是否由本服务自建。注入的索引归 <see cref="IdRegistry" /> 所有，
+        ///     本服务销毁时只能清祖先链，不能清整个索引。
+        /// </summary>
+        private readonly bool ownsTagIndex;
 
         /// <summary>正向索引：Carrier 持有的槽位集合。</summary>
-        private readonly Dictionary<CarrierId, HashSet<RuntimeTagSlot>> tagsByCarrier = new();
+        private readonly Dictionary<int, HashSet<RuntimeTagSlot>> tagsByCarrier = new();
 
         /// <summary>反向索引：槽位被哪些 Carrier 持有。</summary>
-        private readonly Dictionary<RuntimeTagSlot, HashSet<CarrierId>> carriersBySlot = new();
+        private readonly Dictionary<RuntimeTagSlot, HashSet<int>> carriersBySlot = new();
 
         /// <summary>已知的 Carrier 集合，用于空条件反查。</summary>
-        private readonly HashSet<CarrierId> knownCarriers = new();
+        private readonly HashSet<int> knownCarriers = new();
 
         private ICarrierEventCallback eventCallback;
 
@@ -32,8 +39,20 @@ namespace NexusFramework.DataCarrier
         ///     仅用于校验 Carrier 是否有效与枚举已知载体，不参与 Tag 状态存储。
         /// </param>
         public CarrierTagService(ICarrierManager carrierManager)
+            : this(carrierManager, null)
+        {
+        }
+
+        /// <param name="carrierManager">载体管理器。</param>
+        /// <param name="tagIndex">
+        ///     Tag 的 key→slot 索引；为 null 时本服务自建一个。
+        ///     由架构注入时，索引归 <see cref="IdRegistry" /> 管理。
+        /// </param>
+        public CarrierTagService(ICarrierManager carrierManager, KeyIndex tagIndex)
         {
             this.carrierManager = carrierManager ?? throw new ArgumentNullException(nameof(carrierManager));
+            ownsTagIndex = tagIndex == null;
+            this.tagIndex = ownsTagIndex ? new TagRuntimeIndex() : new TagRuntimeIndex(tagIndex);
         }
 
         #region 生命周期
@@ -44,7 +63,7 @@ namespace NexusFramework.DataCarrier
         {
             lock (lockObject)
             {
-                tagIndex.Clear();
+                ClearTagIndex();
                 tagsByCarrier.Clear();
                 carriersBySlot.Clear();
 
@@ -69,7 +88,7 @@ namespace NexusFramework.DataCarrier
         {
             lock (lockObject)
             {
-                tagIndex.Clear();
+                ClearTagIndex();
                 tagsByCarrier.Clear();
                 carriersBySlot.Clear();
                 knownCarriers.Clear();
@@ -80,7 +99,7 @@ namespace NexusFramework.DataCarrier
         {
             lock (lockObject)
             {
-                tagIndex.Clear();
+                ClearTagIndex();
                 tagsByCarrier.Clear();
                 carriersBySlot.Clear();
                 knownCarriers.Clear();
@@ -88,17 +107,29 @@ namespace NexusFramework.DataCarrier
             }
         }
 
+        /// <summary>
+        ///     注入索引时只清本服务维护的祖先链；自建索引才整体清空。
+        ///     由架构注入的 <c>core.tag</c> 归 <see cref="IdRegistry" />，生命周期由架构统一管理。
+        /// </summary>
+        private void ClearTagIndex()
+        {
+            if (ownsTagIndex)
+                tagIndex.Clear();
+            else
+                tagIndex.ClearAncestors();
+        }
+
         public void SetEventCallback(ICarrierEventCallback callback)
         {
             eventCallback = callback;
         }
 
-        public bool IsCarrierKnown(CarrierId carrierId)
+        public bool IsCarrierKnown(int carrierId)
         {
             return carrierManager != null && carrierManager.IsCarrierValid(carrierId);
         }
 
-        public void OnCarrierDestroyed(CarrierId carrierId)
+        public void OnCarrierDestroyed(int carrierId)
         {
             lock (lockObject)
             {
@@ -180,7 +211,7 @@ namespace NexusFramework.DataCarrier
 
         #region 写入
 
-        public bool AddTag(CarrierId carrierId, string key)
+        public bool AddTag(int carrierId, string key)
         {
             var outcome = AddTagInternal(carrierId, key);
             if (outcome != AddOutcome.Added)
@@ -190,7 +221,7 @@ namespace NexusFramework.DataCarrier
             return true;
         }
 
-        public bool RemoveTag(CarrierId carrierId, string key)
+        public bool RemoveTag(int carrierId, string key)
         {
             if (!TryNormalize(key, out var normalized))
                 return false;
@@ -213,7 +244,7 @@ namespace NexusFramework.DataCarrier
             return true;
         }
 
-        public int AddTags(CarrierId carrierId, IEnumerable<string> keys)
+        public int AddTags(int carrierId, IEnumerable<string> keys)
         {
             if (keys == null)
                 return 0;
@@ -233,7 +264,7 @@ namespace NexusFramework.DataCarrier
             return added.Count;
         }
 
-        public int RemoveTags(CarrierId carrierId, IEnumerable<string> keys)
+        public int RemoveTags(int carrierId, IEnumerable<string> keys)
         {
             if (keys == null)
                 return 0;
@@ -253,7 +284,7 @@ namespace NexusFramework.DataCarrier
             return removed.Count;
         }
 
-        public int RestoreTags(CarrierId carrierId, IEnumerable<string> keys)
+        public int RestoreTags(int carrierId, IEnumerable<string> keys)
         {
             if (keys == null)
                 return 0;
@@ -270,7 +301,7 @@ namespace NexusFramework.DataCarrier
 
         #region 查询
 
-        public bool HasExactTag(CarrierId carrierId, string key)
+        public bool HasExactTag(int carrierId, string key)
         {
             if (!TryNormalize(key, out var normalized))
                 return false;
@@ -284,7 +315,7 @@ namespace NexusFramework.DataCarrier
             }
         }
 
-        public bool HasTag(CarrierId carrierId, string key)
+        public bool HasTag(int carrierId, string key)
         {
             if (!TryNormalize(key, out var normalized))
                 return false;
@@ -305,7 +336,7 @@ namespace NexusFramework.DataCarrier
             }
         }
 
-        public bool HasAllTags(CarrierId carrierId, IEnumerable<string> keys)
+        public bool HasAllTags(int carrierId, IEnumerable<string> keys)
         {
             if (keys == null)
                 return false;
@@ -323,7 +354,7 @@ namespace NexusFramework.DataCarrier
             }
         }
 
-        public bool HasAnyTag(CarrierId carrierId, IEnumerable<string> keys)
+        public bool HasAnyTag(int carrierId, IEnumerable<string> keys)
         {
             if (keys == null)
                 return false;
@@ -341,12 +372,12 @@ namespace NexusFramework.DataCarrier
             }
         }
 
-        public bool HasNoneTags(CarrierId carrierId, IEnumerable<string> keys)
+        public bool HasNoneTags(int carrierId, IEnumerable<string> keys)
         {
             return !HasAnyTag(carrierId, keys);
         }
 
-        public IEnumerable<string> GetTags(CarrierId carrierId)
+        public IEnumerable<string> GetTags(int carrierId)
         {
             lock (lockObject)
             {
@@ -357,7 +388,7 @@ namespace NexusFramework.DataCarrier
             }
         }
 
-        public int GetTagCount(CarrierId carrierId)
+        public int GetTagCount(int carrierId)
         {
             lock (lockObject)
             {
@@ -369,17 +400,17 @@ namespace NexusFramework.DataCarrier
 
         #region 反查
 
-        public IEnumerable<CarrierId> FindCarriersWithTag(string key)
+        public IEnumerable<int> FindCarriersWithTag(string key)
         {
             if (!TryNormalize(key, out var normalized))
-                return Enumerable.Empty<CarrierId>();
+                return Enumerable.Empty<int>();
 
             lock (lockObject)
             {
                 if (!tagIndex.TryGetSlot(normalized, out var querySlot))
-                    return Enumerable.Empty<CarrierId>();
+                    return Enumerable.Empty<int>();
 
-                var result = new HashSet<CarrierId>();
+                var result = new HashSet<int>();
                 foreach (var kvp in carriersBySlot)
                     if (tagIndex.MatchesOrIsAncestor(kvp.Key, querySlot))
                         result.UnionWith(kvp.Value);
@@ -388,37 +419,37 @@ namespace NexusFramework.DataCarrier
             }
         }
 
-        public IEnumerable<CarrierId> FindCarriersWithTags(TagQuery query)
+        public IEnumerable<int> FindCarriersWithTags(TagQuery query)
         {
             if (query == null || query.IsEmpty)
-                return Enumerable.Empty<CarrierId>();
+                return Enumerable.Empty<int>();
 
             lock (lockObject)
             {
-                HashSet<CarrierId> result = null;
+                HashSet<int> result = null;
 
                 if (query.All.Count > 0)
                 {
-                    result = new HashSet<CarrierId>(FindCarriersWithTagUnsafe(query.All.First()));
+                    result = new HashSet<int>(FindCarriersWithTagUnsafe(query.All.First()));
                     foreach (var key in query.All.Skip(1))
                         result.IntersectWith(FindCarriersWithTagUnsafe(key));
                 }
 
                 if (query.Any.Count > 0)
                 {
-                    var anyMatches = new HashSet<CarrierId>();
+                    var anyMatches = new HashSet<int>();
                     foreach (var key in query.Any)
                         anyMatches.UnionWith(FindCarriersWithTagUnsafe(key));
 
                     result = result == null ? anyMatches : Intersect(result, anyMatches);
                 }
 
-                result ??= new HashSet<CarrierId>(knownCarriers);
+                result ??= new HashSet<int>(knownCarriers);
                 result.IntersectWith(knownCarriers);
 
                 if (query.None.Count > 0)
                 {
-                    var excluded = new HashSet<CarrierId>();
+                    var excluded = new HashSet<int>();
                     foreach (var key in query.None)
                         excluded.UnionWith(FindCarriersWithTagUnsafe(key));
 
@@ -463,7 +494,7 @@ namespace NexusFramework.DataCarrier
             }
         }
 
-        private AddOutcome AddTagInternal(CarrierId carrierId, string key)
+        private AddOutcome AddTagInternal(int carrierId, string key)
         {
             if (!IsCarrierKnown(carrierId))
                 return AddOutcome.Invalid;
@@ -473,7 +504,8 @@ namespace NexusFramework.DataCarrier
 
             lock (lockObject)
             {
-                var slot = tagIndex.Intern(normalized);
+                if (!tagIndex.TryIntern(normalized, out var slot))
+                    return AddOutcome.Invalid;
 
                 if (!tagsByCarrier.TryGetValue(carrierId, out var slots))
                 {
@@ -490,7 +522,7 @@ namespace NexusFramework.DataCarrier
             }
         }
 
-        private bool RemoveTagInternal(CarrierId carrierId, string key, out string normalized)
+        private bool RemoveTagInternal(int carrierId, string key, out string normalized)
         {
             normalized = null;
             if (!TryNormalize(key, out var value))
@@ -510,18 +542,18 @@ namespace NexusFramework.DataCarrier
             }
         }
 
-        private void AddReverseEntry(CarrierId carrierId, RuntimeTagSlot slot)
+        private void AddReverseEntry(int carrierId, RuntimeTagSlot slot)
         {
             if (!carriersBySlot.TryGetValue(slot, out var carriers))
             {
-                carriers = new HashSet<CarrierId>();
+                carriers = new HashSet<int>();
                 carriersBySlot[slot] = carriers;
             }
 
             carriers.Add(carrierId);
         }
 
-        private void RemoveReverseEntry(CarrierId carrierId, RuntimeTagSlot slot)
+        private void RemoveReverseEntry(int carrierId, RuntimeTagSlot slot)
         {
             if (!carriersBySlot.TryGetValue(slot, out var carriers))
                 return;
@@ -544,12 +576,12 @@ namespace NexusFramework.DataCarrier
         }
 
         /// <summary>调用方必须已持有 <see cref="lockObject"/>。</summary>
-        private HashSet<CarrierId> FindCarriersWithTagUnsafe(string key)
+        private HashSet<int> FindCarriersWithTagUnsafe(string key)
         {
             if (!tagIndex.TryGetSlot(key, out var querySlot))
-                return new HashSet<CarrierId>();
+                return new HashSet<int>();
 
-            var result = new HashSet<CarrierId>();
+            var result = new HashSet<int>();
             foreach (var kvp in carriersBySlot)
                 if (tagIndex.MatchesOrIsAncestor(kvp.Key, querySlot))
                     result.UnionWith(kvp.Value);
@@ -561,9 +593,9 @@ namespace NexusFramework.DataCarrier
         ///     交集结果同样受已知载体集合约束：Tag 索引里可能残留已销毁载体的槽位，
         ///     若不收敛，交集会把这些幽灵载体带进结果。
         /// </summary>
-        private static HashSet<CarrierId> Intersect(HashSet<CarrierId> left, HashSet<CarrierId> right)
+        private static HashSet<int> Intersect(HashSet<int> left, HashSet<int> right)
         {
-            var result = new HashSet<CarrierId>(left);
+            var result = new HashSet<int>(left);
             result.IntersectWith(right);
             return result;
         }

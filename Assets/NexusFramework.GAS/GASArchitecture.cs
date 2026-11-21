@@ -4,6 +4,7 @@ using NexusFramework.GAS.Config;
 using NexusFramework.GAS.ECS;
 using NexusFramework.GAS.Services;
 using NexusFramework.GAS.Models;
+using NexusFramework.Identity;
 using Unity.Entities;
 using Unity.Collections;
 using UnityEngine;
@@ -20,8 +21,14 @@ namespace NexusFramework.GAS
 
         /// <summary>
         ///     GAS 模式下 Tag 由 ECS 承载，因此覆盖基类的托管实现。
+        ///     Tag id 来自配置表 Code，使用独立的 <c>gas.tag</c> 域，不与 Core Tag 共享编号。
         /// </summary>
-        protected override ITagService CreateTagService() => new EcsTagService(this);
+        protected override ITagService CreateTagService(KeyIndex _)
+        {
+            var gasTagIndex = GetIdRegistry().GetOrCreateIndex("gas.tag",
+                new KeyIndexOptions(parseNamespace: false));
+            return new EcsTagService(this, gasTagIndex);
+        }
 
         protected override void OnInit()
         {
@@ -45,7 +52,7 @@ namespace NexusFramework.GAS
             (GetTagService() as EcsTagService)?.RebuildTagMap();
         }
 
-        public CarrierId CreateGASCarrier(string typeName, GameObject go = null)
+        public int CreateGASCarrier(string typeName, GameObject go = null)
         {
             var carrierId = GetCarrierManager().CreateCarrier(typeName);
             var worldService = this.GetService<WorldService>();
@@ -65,7 +72,7 @@ namespace NexusFramework.GAS
         /// 等级、标签、属性集、技能授予一步完成。
         /// 当 ascId 不存在时，返回骨架 Entity（无标签/属性/技能），不抛异常。
         /// </summary>
-        public CarrierId CreateGASCarrier(string typeName, int ascId, GameObject go = null)
+        public int CreateGASCarrier(string typeName, int ascId, GameObject go = null)
         {
             // 1. 搭骨架（复用基础重载）
             var carrierId = CreateGASCarrier(typeName, go);
@@ -134,7 +141,7 @@ namespace NexusFramework.GAS
         /// 为已有 Carrier 绑定对应的 GameObject。
         /// 由拥有 GameObject 的游戏上层逻辑调用。
         /// </summary>
-        public void BindGameObjectForCarrier(CarrierId carrierId, GameObject go)
+        public void BindGameObjectForCarrier(int carrierId, GameObject go)
         {
             var model = this.GetModel<GASEntityMapModel>();
             var entity = model.GetGASEntity(carrierId);
@@ -142,7 +149,7 @@ namespace NexusFramework.GAS
             model.BindGameObject(entity, go);
         }
 
-        public void DestroyGASCarrier(CarrierId carrierId)
+        public void DestroyGASCarrier(int carrierId)
         {
             var model = this.GetModel<GASEntityMapModel>();
             if (!model.ContainsCarrier(carrierId)) return;

@@ -8,8 +8,8 @@ namespace NexusFramework.GAS.Commands
     public class ApplyEffectCommand : AbstractCommand
     {
         public int ConfigId;
-        public CarrierId Target;
-        public CarrierId Source;
+        public int Target;
+        public int Source;
 
         protected override void OnExecute()
         {
@@ -19,7 +19,7 @@ namespace NexusFramework.GAS.Commands
 
     public class ActivateAbilityCommand : AbstractCommand
     {
-        public CarrierId Carrier;
+        public int Carrier;
         public int AbilityCode;
         public XParam Param;
 

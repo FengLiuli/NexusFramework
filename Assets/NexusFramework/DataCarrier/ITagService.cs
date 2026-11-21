@@ -17,13 +17,13 @@ namespace NexusFramework.DataCarrier
         ///     Carrier 被销毁时由 CarrierManager 经 <see cref="ICarrierEventCallback"/> 通知。
         ///     实现方必须清理该 Carrier 的正向与反向索引残留，且对未知 Carrier 静默。
         /// </summary>
-        void OnCarrierDestroyed(CarrierId carrierId);
+        void OnCarrierDestroyed(int carrierId);
 
         /// <summary>
         ///     该 Carrier 是否存在于载体管理器中。实现方应以载体管理器为准，
         ///     不依赖"是否收到过创建通知"——反序列化会重建载体但不触发创建通知。
         /// </summary>
-        bool IsCarrierKnown(CarrierId carrierId);
+        bool IsCarrierKnown(int carrierId);
 
         /// <summary>
         ///     注入事件回调。应与 CarrierManager 使用同一个回调实例，
@@ -57,44 +57,44 @@ namespace NexusFramework.DataCarrier
 
         // ───────────────────────── 写入 ─────────────────────────
 
-        bool AddTag(CarrierId carrierId, string key);
+        bool AddTag(int carrierId, string key);
 
-        bool RemoveTag(CarrierId carrierId, string key);
+        bool RemoveTag(int carrierId, string key);
 
         /// <summary>批量添加，返回成功添加的条数。</summary>
-        int AddTags(CarrierId carrierId, IEnumerable<string> keys);
+        int AddTags(int carrierId, IEnumerable<string> keys);
 
         /// <summary>批量移除，返回成功移除的条数。</summary>
-        int RemoveTags(CarrierId carrierId, IEnumerable<string> keys);
+        int RemoveTags(int carrierId, IEnumerable<string> keys);
 
         /// <summary>
         ///     反序列化专用：批量写入且不触发 TagAdded 事件。
         ///     加载存档时不应引发一连串 Tag 变更广播。
         /// </summary>
-        int RestoreTags(CarrierId carrierId, IEnumerable<string> keys);
+        int RestoreTags(int carrierId, IEnumerable<string> keys);
 
         // ───────────────────────── 查询 ─────────────────────────
 
-        bool HasExactTag(CarrierId carrierId, string key);
+        bool HasExactTag(int carrierId, string key);
 
         /// <summary>层级匹配：父 Tag 命中子 Tag。</summary>
-        bool HasTag(CarrierId carrierId, string key);
+        bool HasTag(int carrierId, string key);
 
-        bool HasAllTags(CarrierId carrierId, IEnumerable<string> keys);
+        bool HasAllTags(int carrierId, IEnumerable<string> keys);
 
-        bool HasAnyTag(CarrierId carrierId, IEnumerable<string> keys);
+        bool HasAnyTag(int carrierId, IEnumerable<string> keys);
 
-        bool HasNoneTags(CarrierId carrierId, IEnumerable<string> keys);
+        bool HasNoneTags(int carrierId, IEnumerable<string> keys);
 
         /// <summary>该 Carrier 当前全部 Tag 键。顺序未定义，序列化时调用方自行排序。</summary>
-        IEnumerable<string> GetTags(CarrierId carrierId);
+        IEnumerable<string> GetTags(int carrierId);
 
-        int GetTagCount(CarrierId carrierId);
+        int GetTagCount(int carrierId);
 
         // ───────────────────────── 反查 ─────────────────────────
 
-        IEnumerable<CarrierId> FindCarriersWithTag(string key);
+        IEnumerable<int> FindCarriersWithTag(string key);
 
-        IEnumerable<CarrierId> FindCarriersWithTags(TagQuery query);
+        IEnumerable<int> FindCarriersWithTags(TagQuery query);
     }
 }

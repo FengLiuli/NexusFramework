@@ -21,15 +21,15 @@ namespace NexusFramework.GAS.Demo
         public Color hpHighColor = Color.green;
         public Color hpLowColor = Color.red;
 
-        private CarrierId _carrierId;
+        private int _carrierId;
         private DemoSceneManager _sceneManager;
 
         private float _maxHp = 500f;
         private float _maxMp = 200f;
 
-        public CarrierId CarrierId => _carrierId;
+        public int CarrierId => _carrierId;
 
-        public void Initialize(CarrierId carrierId, DemoSceneManager manager, float maxHp, float maxMp)
+        public void Initialize(int carrierId, DemoSceneManager manager, float maxHp, float maxMp)
         {
             _carrierId = carrierId;
             _sceneManager = manager;

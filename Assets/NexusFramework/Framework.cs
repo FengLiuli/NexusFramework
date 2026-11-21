@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using NexusFramework.DataCarrier;
+using NexusFramework.Identity;
 using UnityEngine;
 
 namespace NexusFramework
@@ -116,6 +117,9 @@ namespace NexusFramework
 
         // 内置TagService
         ITagService GetTagService();
+
+        // 内置ID注册表
+        IdRegistry GetIdRegistry();
     }
 
     #endregion
@@ -321,34 +325,34 @@ namespace NexusFramework
     /// </summary>
     public static class CanGetCarrierExtension
     {
-        public static bool IsCarrierValid(this ICanGetCarrier self, CarrierId carrierId)
+        public static bool IsCarrierValid(this ICanGetCarrier self, int carrierId)
         {
             return self.Architecture.GetCarrierManager().IsCarrierValid(carrierId);
         }
 
-        public static ushort GetCarrierTypeId(this ICanGetCarrier self, CarrierId carrierId)
+        public static int GetCarrierTypeId(this ICanGetCarrier self, int carrierId)
         {
             return self.Architecture.GetCarrierManager().GetCarrierTypeId(carrierId);
         }
 
-        public static IEnumerable<CarrierId> GetCarriersByTypeId(this ICanGetCarrier self, ushort typeId)
+        public static IEnumerable<int> GetCarriersByTypeId(this ICanGetCarrier self, int typeId)
         {
             return self.Architecture.GetCarrierManager().GetCarriersByType(typeId);
         }
         
-        public static IEnumerable<CarrierId> GetCarriersByTypeName(this ICanGetCarrier self, string typeName)
+        public static IEnumerable<int> GetCarriersByTypeName(this ICanGetCarrier self, string typeName)
         {
             var typeId = self.Architecture.GetCarrierManager().GetTypeId(typeName);
             return self.Architecture.GetCarrierManager().GetCarriersByType(typeId);
         }
 
-        public static IEnumerable<CarrierId> FindCarriersWithTrait<T>(this ICanGetCarrier self)
+        public static IEnumerable<int> FindCarriersWithTrait<T>(this ICanGetCarrier self)
             where T : class, IDataTrait
         {
             return self.Architecture.GetCarrierManager().FindCarriersWithTrait<T>();
         }
 
-        public static IEnumerable<CarrierId> FindCarriersWithTraits(this ICanGetCarrier self, params Type[] traitTypes)
+        public static IEnumerable<int> FindCarriersWithTraits(this ICanGetCarrier self, params Type[] traitTypes)
         {
             return self.Architecture.GetCarrierManager().FindCarriersWithTraits(traitTypes);
         }
@@ -356,28 +360,28 @@ namespace NexusFramework
         
 
         // 只读的特征访问方法（用于Query等只读组件）
-        public static T GetTrait<T>(this ICanGetCarrier self, CarrierId carrierId) where T : class, IDataTrait
+        public static T GetTrait<T>(this ICanGetCarrier self, int carrierId) where T : class, IDataTrait
         {
             return self.Architecture.GetCarrierManager().GetTrait<T>(carrierId);
         }
 
-        public static bool HasTrait<T>(this ICanGetCarrier self, CarrierId carrierId) where T : class, IDataTrait
+        public static bool HasTrait<T>(this ICanGetCarrier self, int carrierId) where T : class, IDataTrait
         {
             return self.Architecture.GetCarrierManager().HasTrait<T>(carrierId);
         }
 
-        public static IEnumerable<IDataTrait> GetAllTraits(this ICanGetCarrier self, CarrierId carrierId)
+        public static IEnumerable<IDataTrait> GetAllTraits(this ICanGetCarrier self, int carrierId)
         {
             return self.Architecture.GetCarrierManager().GetAllTraits(carrierId);
         }
 
-        public static IEnumerable<Type> GetTraitTypes(this ICanGetCarrier self, CarrierId carrierId)
+        public static IEnumerable<Type> GetTraitTypes(this ICanGetCarrier self, int carrierId)
         {
             return self.Architecture.GetCarrierManager().GetTraitTypes(carrierId);
         }
 
         // 类型注册和查询方法
-        public static ushort RegisterCarrierType(this ICanGetCarrier self, string typeName)
+        public static int RegisterCarrierType(this ICanGetCarrier self, string typeName)
         {
             return self.Architecture.GetCarrierManager().RegisterType(typeName);
         }
@@ -387,12 +391,12 @@ namespace NexusFramework
             return self.Architecture.GetCarrierManager().IsTypeRegistered(typeName);
         }
 
-        public static ushort GetCarrierTypeId(this ICanGetCarrier self, string typeName)
+        public static int GetCarrierTypeId(this ICanGetCarrier self, string typeName)
         {
             return self.Architecture.GetCarrierManager().GetTypeId(typeName);
         }
 
-        public static string GetCarrierTypeName(this ICanGetCarrier self, ushort typeId)
+        public static string GetCarrierTypeName(this ICanGetCarrier self, int typeId)
         {
             return self.Architecture.GetCarrierManager().GetTypeName(typeId);
         }
@@ -404,12 +408,12 @@ namespace NexusFramework
     /// </summary>
     public static class CanCreateCarrierExtension
     {
-        public static CarrierId CreateCarrier(this ICanCreateCarrier self, ushort typeId)
+        public static int CreateCarrier(this ICanCreateCarrier self, int typeId)
         {
             return self.Architecture.GetCarrierManager().CreateCarrier(typeId);
         }
 
-        public static CarrierId CreateCarrier(this ICanCreateCarrier self, string typeName)
+        public static int CreateCarrier(this ICanCreateCarrier self, string typeName)
         {
             var manager = self.Architecture.GetCarrierManager();
             if (!manager.IsTypeRegistered(typeName)) manager.RegisterType(typeName);
@@ -417,7 +421,7 @@ namespace NexusFramework
             return manager.CreateCarrier(typeId);
         }
 
-        public static CarrierId CreateCarrier(this IArchitecture self, string typeName)
+        public static int CreateCarrier(this IArchitecture self, string typeName)
         {
             var manager = self.GetCarrierManager();
             if (!manager.IsTypeRegistered(typeName)) manager.RegisterType(typeName);
@@ -426,7 +430,7 @@ namespace NexusFramework
         }
 
         // 添加指定ID创建载体的扩展方法
-        public static bool CreateCarrier(this ICanCreateCarrier self, ushort typeId, ulong uniqueId)
+        public static bool CreateCarrier(this ICanCreateCarrier self, int typeId, ulong uniqueId)
         {
             return self.Architecture.GetCarrierManager().CreateCarrier(typeId, uniqueId);
         }
@@ -447,7 +451,7 @@ namespace NexusFramework
             return manager.CreateCarrier(typeId, uniqueId);
         }
 
-        public static bool DestroyCarrier(this ICanCreateCarrier self, CarrierId carrierId)
+        public static bool DestroyCarrier(this ICanCreateCarrier self, int carrierId)
         {
             return self.Architecture.GetCarrierManager().DestroyCarrier(carrierId);
         }
@@ -458,24 +462,24 @@ namespace NexusFramework
     /// </summary>
     public static class CanManageCarrierTraitExtension
     {
-        public static bool AddTrait<T>(this ICanManageCarrierTrait self, CarrierId carrierId, T trait)
+        public static bool AddTrait<T>(this ICanManageCarrierTrait self, int carrierId, T trait)
             where T : class, IDataTrait
         {
             return self.Architecture.GetCarrierManager().AddTrait(carrierId, trait);
         }
 
-        public static bool RemoveTrait<T>(this ICanManageCarrierTrait self, CarrierId carrierId)
+        public static bool RemoveTrait<T>(this ICanManageCarrierTrait self, int carrierId)
             where T : class, IDataTrait
         {
             return self.Architecture.GetCarrierManager().RemoveTrait<T>(carrierId);
         }
 
-        public static IEnumerable<IDataTrait> GetAllTraits(this ICanManageCarrierTrait self, CarrierId carrierId)
+        public static IEnumerable<IDataTrait> GetAllTraits(this ICanManageCarrierTrait self, int carrierId)
         {
             return self.Architecture.GetCarrierManager().GetAllTraits(carrierId);
         }
 
-        public static IEnumerable<Type> GetTraitTypes(this ICanManageCarrierTrait self, CarrierId carrierId)
+        public static IEnumerable<Type> GetTraitTypes(this ICanManageCarrierTrait self, int carrierId)
         {
             return self.Architecture.GetCarrierManager().GetTraitTypes(carrierId);
         }
@@ -486,37 +490,37 @@ namespace NexusFramework
     /// </summary>
     public static class CanGetCarrierTagExtension
     {
-        public static bool HasExactTag(this ICanGetCarrierTag self, CarrierId carrierId, string key)
+        public static bool HasExactTag(this ICanGetCarrierTag self, int carrierId, string key)
         {
             return self.Architecture.GetTagService().HasExactTag(carrierId, key);
         }
 
-        public static bool HasTag(this ICanGetCarrierTag self, CarrierId carrierId, string key)
+        public static bool HasTag(this ICanGetCarrierTag self, int carrierId, string key)
         {
             return self.Architecture.GetTagService().HasTag(carrierId, key);
         }
 
-        public static bool HasAllTags(this ICanGetCarrierTag self, CarrierId carrierId, IEnumerable<string> keys)
+        public static bool HasAllTags(this ICanGetCarrierTag self, int carrierId, IEnumerable<string> keys)
         {
             return self.Architecture.GetTagService().HasAllTags(carrierId, keys);
         }
 
-        public static bool HasAnyTag(this ICanGetCarrierTag self, CarrierId carrierId, IEnumerable<string> keys)
+        public static bool HasAnyTag(this ICanGetCarrierTag self, int carrierId, IEnumerable<string> keys)
         {
             return self.Architecture.GetTagService().HasAnyTag(carrierId, keys);
         }
 
-        public static bool HasNoneTags(this ICanGetCarrierTag self, CarrierId carrierId, IEnumerable<string> keys)
+        public static bool HasNoneTags(this ICanGetCarrierTag self, int carrierId, IEnumerable<string> keys)
         {
             return self.Architecture.GetTagService().HasNoneTags(carrierId, keys);
         }
 
-        public static IEnumerable<CarrierId> FindCarriersWithTag(this ICanGetCarrierTag self, string key)
+        public static IEnumerable<int> FindCarriersWithTag(this ICanGetCarrierTag self, string key)
         {
             return self.Architecture.GetTagService().FindCarriersWithTag(key);
         }
 
-        public static IEnumerable<CarrierId> FindCarriersWithTags(this ICanGetCarrierTag self, TagQuery query)
+        public static IEnumerable<int> FindCarriersWithTags(this ICanGetCarrierTag self, TagQuery query)
         {
             return self.Architecture.GetTagService().FindCarriersWithTags(query);
         }
@@ -527,12 +531,12 @@ namespace NexusFramework
     /// </summary>
     public static class CanManageCarrierTagExtension
     {
-        public static bool AddTag(this ICanManageCarrierTag self, CarrierId carrierId, string key)
+        public static bool AddTag(this ICanManageCarrierTag self, int carrierId, string key)
         {
             return self.Architecture.GetTagService().AddTag(carrierId, key);
         }
 
-        public static bool RemoveTag(this ICanManageCarrierTag self, CarrierId carrierId, string key)
+        public static bool RemoveTag(this ICanManageCarrierTag self, int carrierId, string key)
         {
             return self.Architecture.GetTagService().RemoveTag(carrierId, key);
         }

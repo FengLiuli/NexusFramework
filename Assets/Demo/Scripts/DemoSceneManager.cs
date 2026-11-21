@@ -27,8 +27,8 @@ namespace NexusFramework.GAS.Demo
         public float enemyMaxHp = 500f;
 
         private DemoGameArchitecture _arch;
-        private CarrierId _playerCarrier;
-        private CarrierId _enemyCarrier;
+        private int _playerCarrier;
+        private int _enemyCarrier;
         private Entity _playerEntity;
         private Entity _enemyEntity;
         private EntityManager _em;
@@ -161,12 +161,12 @@ namespace NexusFramework.GAS.Demo
 
         private void RefreshUI()
         {
-            if (_playerCarrier.IsValid && _playerUI != null)
+            if (_playerCarrier > 0 && _playerUI != null)
             {
                 _playerUI.UpdateHp(_attributeService.GetCurrentValue(_playerCarrier, 1, 1), playerMaxHp);
                 _playerUI.UpdateMp(_attributeService.GetCurrentValue(_playerCarrier, 1, 2), playerMaxMp);
             }
-            if (_enemyCarrier.IsValid && _enemyUI != null)
+            if (_enemyCarrier > 0 && _enemyUI != null)
                 _enemyUI.UpdateHp(_attributeService.GetCurrentValue(_enemyCarrier, 1, 1), enemyMaxHp);
         }
 
@@ -200,7 +200,7 @@ namespace NexusFramework.GAS.Demo
 
         void TryActivate(int code)
         {
-            if (!_playerCarrier.IsValid) return;
+            if (_playerCarrier <= 0) return;
             if (_abilityService.IsActive(_playerCarrier, code))
             {
                 AddLog("On cooldown!");
@@ -229,8 +229,8 @@ namespace NexusFramework.GAS.Demo
             if (_logText != null) _logText.text = _logLines;
         }
 
-        public CarrierId GetPlayerCarrier() => _playerCarrier;
-        public CarrierId GetEnemyCarrier() => _enemyCarrier;
+        public int GetPlayerCarrier() => _playerCarrier;
+        public int GetEnemyCarrier() => _enemyCarrier;
 
         /// <summary>供 Editor 测试：模拟技能快捷键</summary>
         public void SimulateQ() => TryActivate(1001);

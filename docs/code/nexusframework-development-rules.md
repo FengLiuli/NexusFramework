@@ -1,5 +1,7 @@
 # NexusFramework 开发规则与约定
 
+> **已过时（2026-11-20）**：本文档描述的是早期设计。`CarrierId` 已删除，Carrier 实例改为 `int` 句柄、类型键改为命名空间化字符串；Tag 与 Identity 子系统也已重构。当前实现请以源码与 `docs/design/D008-identity-interface-design.md` 为准，本文仅作历史参考保留。
+
 本文档描述了 NexusFramework 框架的开发规则、结构和约定，以便开发者能够遵循统一的标准进行开发。
 
 ## 1. 框架概述

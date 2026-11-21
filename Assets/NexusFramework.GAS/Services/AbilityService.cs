@@ -12,7 +12,7 @@ namespace NexusFramework.GAS.Services
 {
     public class AbilityService : AbstractService
     {
-        private readonly Dictionary<CarrierId, List<int>> _grantedAbilities = new();
+        private readonly Dictionary<int, List<int>> _grantedAbilities = new();
 
         protected override void OnInit()
         {
@@ -83,7 +83,7 @@ namespace NexusFramework.GAS.Services
             return null;
         }
 
-        public void GrantAbility(CarrierId carrier, int abilityCode, IArchitecture architecture)
+        public void GrantAbility(int carrier, int abilityCode, IArchitecture architecture)
         {
             var model = this.GetModel<GASEntityMapModel>();
             var ownerEntity = model.GetGASEntity(carrier);
@@ -119,7 +119,7 @@ namespace NexusFramework.GAS.Services
             _grantedAbilities[carrier].Add(abilityCode);
         }
 
-        public bool TryActivate(CarrierId carrier, int abilityCode, XParam param = null)
+        public bool TryActivate(int carrier, int abilityCode, XParam param = null)
         {
             var model = this.GetModel<GASEntityMapModel>();
             var ownerEntity = model.GetGASEntity(carrier);
@@ -149,7 +149,7 @@ namespace NexusFramework.GAS.Services
             return false;
         }
 
-        public void TryEnd(CarrierId carrier, int abilityCode)
+        public void TryEnd(int carrier, int abilityCode)
         {
             MarkAbilityAction(carrier, abilityCode, abilityEntity =>
             {
@@ -159,7 +159,7 @@ namespace NexusFramework.GAS.Services
             });
         }
 
-        public void TryCancel(CarrierId carrier, int abilityCode)
+        public void TryCancel(int carrier, int abilityCode)
         {
             MarkAbilityAction(carrier, abilityCode, abilityEntity =>
             {
@@ -169,7 +169,7 @@ namespace NexusFramework.GAS.Services
             });
         }
 
-        private void MarkAbilityAction(CarrierId carrier, int abilityCode, System.Func<Entity, bool> action)
+        private void MarkAbilityAction(int carrier, int abilityCode, System.Func<Entity, bool> action)
         {
             var model = this.GetModel<GASEntityMapModel>();
             var ownerEntity = model.GetGASEntity(carrier);
@@ -189,7 +189,7 @@ namespace NexusFramework.GAS.Services
             }
         }
 
-        public void RemoveAbility(CarrierId carrier, int abilityCode)
+        public void RemoveAbility(int carrier, int abilityCode)
         {
             var model = this.GetModel<GASEntityMapModel>();
             var ownerEntity = model.GetGASEntity(carrier);
@@ -231,7 +231,7 @@ namespace NexusFramework.GAS.Services
                 list.Remove(abilityCode);
         }
 
-        public bool IsActive(CarrierId carrier, int abilityCode)
+        public bool IsActive(int carrier, int abilityCode)
         {
             var model = this.GetModel<GASEntityMapModel>();
             var ownerEntity = model.GetGASEntity(carrier);

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NexusFramework;
 using NexusFramework.DataCarrier;
+using NexusFramework.Identity;
 using NUnit.Framework;
 
 namespace NexusFramework.Core.Tests
@@ -199,6 +200,38 @@ namespace NexusFramework.Core.Tests
         }
 
         [Test]
+        public void AddTag_KeyWithMultipleColons_IsAccepted()
+        {
+            manager.RegisterType("Test");
+            var c = manager.CreateCarrier("Test");
+
+            Assert.That(tagService.AddTag(c, "a:b:c"), Is.True,
+                "Tag 键不套用 IdKey 的冒号命名空间规则");
+            Assert.That(tagService.HasExactTag(c, "a:b:c"), Is.True);
+        }
+
+        [Test]
+        public void AddTag_WhenTagIndexRejectsKey_ReturnsFalse_AndLeavesNoSlotZero()
+        {
+            manager.RegisterType("Test");
+            var c = manager.CreateCarrier("Test");
+
+            // 容量只够一个 tag：第二个 key 会被 KeyIndex 拒绝（IdOutOfRange）。
+            var limitedIndex = new KeyIndex("core.tag.limited",
+                new KeyIndexOptions(maxValue: 1, parseNamespace: false));
+            var limitedTags = new CarrierTagService(manager, limitedIndex);
+
+            Assert.That(limitedTags.AddTag(c, "First.Tag"), Is.True);
+            Assert.That(limitedTags.AddTag(c, "Second.Tag"), Is.False,
+                "索引拒绝时必须返回失败，不得挂载 slot 0");
+            Assert.That(limitedTags.GetTagCount(c), Is.EqualTo(1));
+
+            System.Collections.Generic.List<string> keys = null;
+            Assert.DoesNotThrow(() => { keys = limitedTags.GetTags(c).ToList(); });
+            Assert.That(keys, Has.Count.EqualTo(1));
+        }
+
+        [Test]
         public void SerializeCarrier_ContainsTagKeysOnly()
         {
             manager.RegisterType("Test");
@@ -304,7 +337,7 @@ namespace NexusFramework.Core.Tests
         [Test]
         public void RestoreTags_UnknownCarrier_ReturnsZero()
         {
-            Assert.That(tagService.RestoreTags(CarrierId.Invalid, new[] { "物品.食物" }), Is.EqualTo(0));
+            Assert.That(tagService.RestoreTags(0, new[] { "物品.食物" }), Is.EqualTo(0));
         }
 
         [Test]
@@ -323,7 +356,7 @@ namespace NexusFramework.Core.Tests
         [Test]
         public void IsCarrierKnown_InvalidId_ReturnsFalse()
         {
-            Assert.That(tagService.IsCarrierKnown(CarrierId.Invalid), Is.False);
+            Assert.That(tagService.IsCarrierKnown(0), Is.False);
         }
     }
 
@@ -550,7 +583,7 @@ namespace NexusFramework.Core.Tests
         [Test]
         public void AddTags_UnknownCarrier_ReturnsZero()
         {
-            Assert.That(tagService.AddTags(CarrierId.Invalid, new[] { "物品.食物" }), Is.EqualTo(0));
+            Assert.That(tagService.AddTags(0, new[] { "物品.食物" }), Is.EqualTo(0));
         }
 
         [Test]
@@ -645,13 +678,13 @@ namespace NexusFramework.Core.Tests
     }
 
     /// <summary>
-    ///     服务释放后的行为。释放应清空全部索引，且不留下可被后续查询命中的残留。
+    ///     服务释放后的行为。释放应清空挂载关系，但不清理归架构所有的 key→slot 索引。
     /// </summary>
     [TestFixture]
     public class CarrierTagServiceDisposeTests
     {
         [Test]
-        public void Dispose_ClearsAllTagState()
+        public void Dispose_ClearsTagMounts_ButKeepsSharedIndex()
         {
             var arch = new CoreTestArchitecture();
             arch.Initialize();
@@ -668,14 +701,14 @@ namespace NexusFramework.Core.Tests
             Assert.That(tagService.GetTagCount(c), Is.EqualTo(0));
             Assert.That(tagService.HasTag(c, "物品.食物"), Is.False);
             Assert.That(tagService.FindCarriersWithTag("物品.食物").Count(), Is.EqualTo(0));
-            // 槽位空间已重置，旧 id 不再可解析
-            Assert.That(tagService.GetTagKey(id), Is.Null);
+            // core.tag 索引归架构 IdRegistry：服务释放不影响 key→slot 映射。
+            Assert.That(tagService.GetTagKey(id), Is.EqualTo("物品.食物"));
 
             arch.Dispose();
         }
 
         [Test]
-        public void Init_AfterDispose_ResetsSlotSpace()
+        public void Init_KeepsSharedSlotSpace()
         {
             var arch = new CoreTestArchitecture();
             arch.Initialize();
@@ -685,7 +718,7 @@ namespace NexusFramework.Core.Tests
             tagService.Init();
             var idAfter = tagService.InternTag("物品.食物");
 
-            // 索引重置后槽位空间从头分配
+            // 索引归架构所有，服务 Init 不应重置槽位空间。
             Assert.That(idAfter, Is.EqualTo(idBefore));
             Assert.That(tagService.GetTagKey(idAfter), Is.EqualTo("物品.食物"));
 
@@ -736,7 +769,7 @@ namespace NexusFramework.Core.Tests
         [Test]
         public void AddTag_UnknownCarrier_ReturnsFalse()
         {
-            Assert.That(tagService.AddTag(CarrierId.Invalid, "物品.食物"), Is.False);
+            Assert.That(tagService.AddTag(0, "物品.食物"), Is.False);
         }
 
         [Test]

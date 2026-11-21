@@ -7,12 +7,12 @@ namespace NexusFramework.GAS.Binding
 {
     public class GASAttributeBindable : BindableProperty<float>
     {
-        private readonly CarrierId _carrierId;
+        private readonly int _carrierId;
         private readonly int _attrSetCode;
         private readonly int _attrCode;
         private IUnRegister _eventRegistration;
 
-        public GASAttributeBindable(CarrierId carrierId, int attrSetCode, int attrCode, float defaultValue = 0f)
+        public GASAttributeBindable(int carrierId, int attrSetCode, int attrCode, float defaultValue = 0f)
             : base(defaultValue)
         {
             _carrierId = carrierId;

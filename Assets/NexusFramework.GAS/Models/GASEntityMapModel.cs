@@ -10,9 +10,9 @@ namespace NexusFramework.GAS.Models
     /// <summary>
     ///     Carrier ↔ Entity ↔ GameObject 三向映射。
     ///
-    ///     两条主链（CarrierId ↔ Entity、CarrierId ↔ GameObject）由框架的
+    ///     两条主链（int ↔ Entity、int ↔ GameObject）由框架的
     ///     <see cref="CarrierIndex{TValue}" /> 承载并注册进 <see cref="ICarrierManager" />，
-    ///     载体销毁时自动清理。Entity ↔ GameObject 为二者派生——通过 <c>Entity→CarrierId→GameObject</c> 组合推导，
+    ///     载体销毁时自动清理。Entity ↔ GameObject 为二者派生——通过 <c>Entity→int→GameObject</c> 组合推导，
     ///     仅需一张 <c>GameObject → Entity</c> 查表。
     ///
     ///     GameObject 是 Unity 引用类型，销毁后重载为「假 null」，故 <see cref="GetGameObject" /> 保留惰性过期剔除——
@@ -24,10 +24,10 @@ namespace NexusFramework.GAS.Models
         private const string EntityIndexName = "gas.entityMap.carrier.entity";
         private const string GameObjectIndexName = "gas.entityMap.carrier.gameObject";
 
-        // ── 主链：CarrierId ↔ Entity ──────────────────────────
+        // ── 主链：int ↔ Entity ──────────────────────────
         private readonly CarrierIndex<Entity> _entities;
 
-        // ── 主链：CarrierId ↔ GameObject ─────────────────────
+        // ── 主链：int ↔ GameObject ─────────────────────
         private readonly CarrierIndex<GameObject> _gameObjects;
 
         // ── 派生：GameObject → Entity（配合 _entities 反查给出 Entity↔GameObject 双向）──
@@ -40,12 +40,12 @@ namespace NexusFramework.GAS.Models
         }
 
         // ═══════════════════════════════════════════════════
-        //  CarrierId ↔ Entity
+        //  int ↔ Entity
         // ═══════════════════════════════════════════════════
 
-        public void Bind(CarrierId carrierId, Entity gasEntity)
+        public void Bind(int carrierId, Entity gasEntity)
         {
-            if (!carrierId.IsValid || gasEntity == Entity.Null)
+            if (carrierId <= 0 || gasEntity == Entity.Null)
             {
                 Debug.LogWarning($"[GASEntityMapModel] Bind skipped: invalid carrier {carrierId} or null entity");
                 return;
@@ -55,30 +55,30 @@ namespace NexusFramework.GAS.Models
         }
 
         /// <summary>解除 Carrier↔Entity 绑定。会联动解绑该载体名下的 GameObject 绑定。</summary>
-        public void Unbind(CarrierId carrierId)
+        public void Unbind(int carrierId)
         {
             _entities.Unbind(carrierId); // 触发 OnBindingRemoved → TeardownGameObject
         }
 
-        public Entity GetGASEntity(CarrierId carrierId)
+        public Entity GetGASEntity(int carrierId)
         {
             return _entities.TryGet(carrierId, out var e) ? e : Entity.Null;
         }
 
-        public CarrierId GetCarrierId(Entity gasEntity)
+        public int GetCarrierId(Entity gasEntity)
         {
-            if (gasEntity == Entity.Null) return CarrierId.Invalid;
+            if (gasEntity == Entity.Null) return 0;
             return _entities.TryGetCarrier(gasEntity);
         }
 
-        public bool ContainsCarrier(CarrierId carrierId)
+        public bool ContainsCarrier(int carrierId)
         {
             return _entities.Contains(carrierId);
         }
 
         public bool ContainsEntity(Entity gasEntity)
         {
-            return gasEntity != Entity.Null && _entities.TryGetCarrier(gasEntity).IsValid;
+            return gasEntity != Entity.Null && _entities.TryGetCarrier(gasEntity) > 0;
         }
 
         // ═══════════════════════════════════════════════════
@@ -100,7 +100,7 @@ namespace NexusFramework.GAS.Models
             }
 
             var carrier = _entities.TryGetCarrier(entity);
-            if (!carrier.IsValid)
+            if (carrier <= 0)
             {
                 Debug.LogWarning(
                     $"[GASEntityMapModel] BindGameObject skipped: entity {entity} is not bound to any carrier");
@@ -142,7 +142,7 @@ namespace NexusFramework.GAS.Models
             if (entity == Entity.Null) return;
 
             var carrier = _entities.TryGetCarrier(entity);
-            if (!carrier.IsValid) return;
+            if (carrier <= 0) return;
 
             TeardownGameObject(carrier);
         }
@@ -152,7 +152,7 @@ namespace NexusFramework.GAS.Models
             if (entity == Entity.Null) return null;
 
             var carrier = _entities.TryGetCarrier(entity);
-            if (!carrier.IsValid) return null;
+            if (carrier <= 0) return null;
 
             if (!_gameObjects.TryGet(carrier, out var go)) return null;
 
@@ -187,7 +187,7 @@ namespace NexusFramework.GAS.Models
         // ═══════════════════════════════════════════════════
 
         /// <summary>解除某载体的 GameObject 绑定：清主链条目、派生查表，并标记 GASEntityRef 失效。</summary>
-        private void TeardownGameObject(CarrierId carrier)
+        private void TeardownGameObject(int carrier)
         {
             if (!_gameObjects.TryGet(carrier, out var go)) return;
 
@@ -207,11 +207,11 @@ namespace NexusFramework.GAS.Models
         public void Clear()
         {
             // 先清 GameObject 侧（移除会改集合，故遍历快照）
-            foreach (var carrier in new List<CarrierId>(_gameObjects.Carriers))
+            foreach (var carrier in new List<int>(_gameObjects.Carriers))
                 TeardownGameObject(carrier);
 
             // 再清 Entity 侧（其 OnBindingRemoved 会再调 TeardownGameObject，此时已空，幂等）
-            foreach (var carrier in new List<CarrierId>(_entities.Carriers))
+            foreach (var carrier in new List<int>(_entities.Carriers))
                 _entities.Unbind(carrier);
 
             _goToEntity.Clear();

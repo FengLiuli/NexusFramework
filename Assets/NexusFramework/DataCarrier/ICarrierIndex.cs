@@ -16,7 +16,7 @@ namespace NexusFramework.DataCarrier
         /// <summary>
         ///     移除该载体在本索引中的所有条目（销毁清理入口）。
         /// </summary>
-        void OnCarrierRemoved(CarrierId carrier);
+        void OnCarrierRemoved(int carrier);
 
         /// <summary>
         ///     本索引当前承载的条目数（诊断用）。

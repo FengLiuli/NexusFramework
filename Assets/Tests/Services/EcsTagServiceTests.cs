@@ -56,6 +56,14 @@ namespace NexusFramework.GAS.Tests.Services
         }
 
         [Test]
+        public void InternTag_ReturnsConfiguredTagCode()
+        {
+            // MockConfigLoader 中 Faction.Player 的 Code 为 11；接入 KeyIndex 后必须保持不变。
+            Assert.That(_tagService.InternTag("Faction.Player"), Is.EqualTo(11));
+            Assert.That(_tagService.GetTagKey(11), Is.EqualTo("Faction.Player"));
+        }
+
+        [Test]
         public void InternTag_UnknownKey_ReturnsZero()
         {
             // 表外键必须显式报错而非静默返回 0
@@ -168,7 +176,7 @@ namespace NexusFramework.GAS.Tests.Services
         [Test]
         public void HasTag_InvalidCarrier_ReturnsFalse()
         {
-            Assert.That(_tagService.HasTag(new CarrierId(), "Faction.Player"), Is.False);
+            Assert.That(_tagService.HasTag(0, "Faction.Player"), Is.False);
         }
 
         [Test]

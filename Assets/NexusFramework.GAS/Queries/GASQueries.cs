@@ -9,7 +9,7 @@ namespace NexusFramework.GAS.Queries
 {
     public class QueryAttributeValue : AbstractQuery<float>
     {
-        public CarrierId Target;
+        public int Target;
         public int AttrSetCode;
         public int AttrCode;
 

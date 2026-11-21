@@ -5,9 +5,9 @@ using UnityEngine;
 namespace NexusFramework.DataCarrier
 {
     /// <summary>
-    ///     CarrierId ↔ TValue 双射索引表。
+    ///     int ↔ TValue 双射索引表。
     ///
-    ///     反向映射（value → CarrierId）**始终维护**：值冲突采用「覆盖」语义，
+    ///     反向映射（value → int）**始终维护**：值冲突采用「覆盖」语义，
     ///     Bind 时须按值反查旧主并驱逐旧主，故反查能力为必需。
     ///
     ///     **一张表 = 一个双射关系**。若需「多对一」（多个源指向同一目标，如多单位锁定同一目标），
@@ -15,11 +15,11 @@ namespace NexusFramework.DataCarrier
     /// </summary>
     public sealed class CarrierIndex<TValue> : ICarrierIndex, ICarrierIndexOwner
     {
-        private readonly Dictionary<CarrierId, TValue> _forward = new();
-        private readonly Dictionary<TValue, CarrierId> _reverse = new();
+        private readonly Dictionary<int, TValue> _forward = new();
+        private readonly Dictionary<TValue, int> _reverse = new();
 
-        // 仅当 TValue == CarrierId 时启用「被引用值」清理（引用完整性）。
-        private static readonly bool ValueIsCarrierId = typeof(CarrierId).IsAssignableFrom(typeof(TValue));
+        // 仅当 TValue == int 时启用「被引用值」清理（引用完整性）。
+        private static readonly bool ValueIsCarrierId = typeof(int).IsAssignableFrom(typeof(TValue));
 
         private ICarrierManager _owner;
 
@@ -28,7 +28,7 @@ namespace NexusFramework.DataCarrier
         ///     显式 <see cref="Unbind" />、值冲突驱逐旧主、自我重绑、销毁清理。
         ///     供宿主同步其它派生索引（避免「一个载体在两张表」的不一致）。
         /// </summary>
-        public event Action<CarrierId, TValue> OnBindingRemoved;
+        public event Action<int, TValue> OnBindingRemoved;
 
         /// <param name="name">表名。同一 Architecture 内唯一，标识业务语义。</param>
         public CarrierIndex(string name)
@@ -50,7 +50,7 @@ namespace NexusFramework.DataCarrier
         ///     ② 值冲突 → 驱逐旧主（后者覆盖前者），返回 true；
         ///     ③ 自我重绑 → 覆盖旧值并清理旧反向条目。
         /// </summary>
-        public bool Bind(CarrierId carrier, TValue value)
+        public bool Bind(int carrier, TValue value)
         {
             if (_owner != null && !_owner.IsCarrierValid(carrier))
             {
@@ -76,7 +76,7 @@ namespace NexusFramework.DataCarrier
         }
 
         /// <summary>解除该载体映射（同时清反向条目）。</summary>
-        public bool Unbind(CarrierId carrier)
+        public bool Unbind(int carrier)
         {
             if (!_forward.TryGetValue(carrier, out var value)) return false;
 
@@ -88,17 +88,17 @@ namespace NexusFramework.DataCarrier
             return true;
         }
 
-        public bool TryGet(CarrierId carrier, out TValue value) => _forward.TryGetValue(carrier, out value);
+        public bool TryGet(int carrier, out TValue value) => _forward.TryGetValue(carrier, out value);
 
-        public CarrierId TryGetCarrier(TValue value)
-            => _reverse.TryGetValue(value, out var carrier) ? carrier : CarrierId.Invalid;
+        public int TryGetCarrier(TValue value)
+            => _reverse.TryGetValue(value, out var carrier) ? carrier : 0;
 
-        public bool Contains(CarrierId carrier) => _forward.ContainsKey(carrier);
+        public bool Contains(int carrier) => _forward.ContainsKey(carrier);
 
         /// <summary>全部载体（快照副本，用于遍历/诊断）。</summary>
-        public IReadOnlyCollection<CarrierId> Carriers => new List<CarrierId>(_forward.Keys);
+        public IReadOnlyCollection<int> Carriers => new List<int>(_forward.Keys);
 
-        public void OnCarrierRemoved(CarrierId carrier)
+        public void OnCarrierRemoved(int carrier)
         {
             // ── 角色 A：载体作主语（key）──
             if (_forward.TryGetValue(carrier, out var value))
@@ -109,7 +109,7 @@ namespace NexusFramework.DataCarrier
                 OnBindingRemoved?.Invoke(carrier, value);
             }
 
-            // ── 角色 B：载体作被引用值（仅 TValue == CarrierId）──
+            // ── 角色 B：载体作被引用值（仅 TValue == int）──
             // 有载体把本载体当作目标；它已销毁，指向它的绑定必须解除（source 本身存活）。
             if (ValueIsCarrierId &&
                 _reverse.TryGetValue((TValue)(object)carrier, out var source) && source != carrier)

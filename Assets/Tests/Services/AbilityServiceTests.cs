@@ -48,7 +48,7 @@ namespace NexusFramework.GAS.Tests.Services
         public void TryActivate_WithInvalidCarrier_ReturnsFalse()
         {
             Assert.That(
-                _abilityService.TryActivate(new CarrierId(), abilityCode: 1),
+                _abilityService.TryActivate(0, abilityCode: 1),
                 Is.False);
         }
 
@@ -56,7 +56,7 @@ namespace NexusFramework.GAS.Tests.Services
         public void IsActive_WithInvalidCarrier_ReturnsFalse()
         {
             Assert.That(
-                _abilityService.IsActive(new CarrierId(), abilityCode: 1),
+                _abilityService.IsActive(0, abilityCode: 1),
                 Is.False);
         }
 

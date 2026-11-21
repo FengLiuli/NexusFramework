@@ -82,7 +82,7 @@ namespace NexusFramework.GAS.Tests.Smoke
             var model = _arch.GetModel<GASEntityMapModel>();
             var em = _arch.GetService<WorldService>().EntityManager;
 
-            Assert.That(carrierId.IsValid, Is.True);
+            Assert.That(carrierId > 0, Is.True);
             Assert.That(model.ContainsCarrier(carrierId), Is.True);
 
             var entity = model.GetGASEntity(carrierId);

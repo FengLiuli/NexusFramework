@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using NexusFramework.Identity;
 using UnityEngine;
 
 namespace NexusFramework.DataCarrier
@@ -17,35 +18,35 @@ namespace NexusFramework.DataCarrier
         int TotalTraitCount { get; }
 
         // 类型注册
-        ushort RegisterType(string typeName);
+        int RegisterType(string typeName);
         bool IsTypeRegistered(string typeName);
-        ushort GetTypeId(string typeName);
-        string GetTypeName(ushort typeId);
+        int GetTypeId(string typeName);
+        string GetTypeName(int typeId);
 
         // 载体管理
-        CarrierId CreateCarrier(ushort typeId);
-        CarrierId CreateCarrier(string typeName);
-        bool CreateCarrier(ushort typeId, ulong uniqueId); // 添加指定ID创建载体的方法
-        bool DestroyCarrier(CarrierId carrierId);
-        bool IsCarrierValid(CarrierId carrierId);
-        ushort GetCarrierTypeId(CarrierId carrierId);
-        IEnumerable<CarrierId> GetCarriersByType(ushort typeId);
-        int GetCarrierCount(ushort typeId);
+        int CreateCarrier(int typeId);
+        int CreateCarrier(string typeName);
+        bool CreateCarrier(int typeId, ulong uniqueId);
+        bool DestroyCarrier(int carrierId);
+        bool IsCarrierValid(int carrierId);
+        int GetCarrierTypeId(int carrierId);
+        IEnumerable<int> GetCarriersByType(int typeId);
+        int GetCarrierCount(int typeId);
 
         /// <summary>全部载体。用于需要跨类型遍历的场景（如按 Tag 反查）。</summary>
-        IEnumerable<CarrierId> GetAllCarriers();
+        IEnumerable<int> GetAllCarriers();
 
         // 特征管理
-        bool AddTrait<T>(CarrierId carrierId, T trait) where T : class, IDataTrait;
-        bool RemoveTrait<T>(CarrierId carrierId) where T : class, IDataTrait;
-        T GetTrait<T>(CarrierId carrierId) where T : class, IDataTrait;
-        bool HasTrait<T>(CarrierId carrierId) where T : class, IDataTrait;
-        IEnumerable<IDataTrait> GetAllTraits(CarrierId carrierId);
-        IEnumerable<Type> GetTraitTypes(CarrierId carrierId);
+        bool AddTrait<T>(int carrierId, T trait) where T : class, IDataTrait;
+        bool RemoveTrait<T>(int carrierId) where T : class, IDataTrait;
+        T GetTrait<T>(int carrierId) where T : class, IDataTrait;
+        bool HasTrait<T>(int carrierId) where T : class, IDataTrait;
+        IEnumerable<IDataTrait> GetAllTraits(int carrierId);
+        IEnumerable<Type> GetTraitTypes(int carrierId);
 
         // 查询功能
-        IEnumerable<CarrierId> FindCarriersWithTrait<T>() where T : class, IDataTrait;
-        IEnumerable<CarrierId> FindCarriersWithTraits(params Type[] traitTypes);
+        IEnumerable<int> FindCarriersWithTrait<T>() where T : class, IDataTrait;
+        IEnumerable<int> FindCarriersWithTraits(params Type[] traitTypes);
 
         // 索引表管理
         /// <summary>注册索引表（以 index.Name 为键）。重名不同实例被拒绝（保留先者）。</summary>
@@ -64,30 +65,53 @@ namespace NexusFramework.DataCarrier
         IReadOnlyCollection<ICarrierIndex> GetAllIndexes();
 
         // 序列化
-        string SerializeCarrier(CarrierId carrierId);
-        CarrierId DeserializeCarrier(string json);
+        string SerializeCarrier(int carrierId);
+        int DeserializeCarrier(string json);
         void SaveToFile(string filePath);
         void LoadFromFile(string filePath);
     }
 
     /// <summary>
-    ///     载体管理器实现
+    ///     载体管理器实现。
+    ///     类型走 <see cref="KeyIndex" />，实例走 <see cref="TypedAllocator" />；
+    ///     实例 id 是运行时槽位，不进入持久化格式。
     /// </summary>
     public class CarrierManager : ICarrierManager
     {
+        private const string TypeDomain = "carrier.type";
+        private const string InstanceDomain = "carrier.instance";
+
         #region 构造函数
 
-        public CarrierManager(byte frameworkId = 0)
+        /// <summary>自建 <see cref="IdRegistry" />；用于独立测试或未接入架构的场景。</summary>
+        public CarrierManager() : this(new IdRegistry())
         {
-            this.frameworkId = frameworkId;
         }
 
-        /// <summary>
-        ///     注入事件回调，以便在载体生命周期变更后通过外部事件系统广播。
-        /// </summary>
+        /// <summary>兼容旧签名；<paramref name="frameworkId" /> 不再参与标识。</summary>
+        public CarrierManager(byte frameworkId) : this(new IdRegistry())
+        {
+        }
+
+        public CarrierManager(IdRegistry registry)
+        {
+            mRegistry = registry ?? throw new ArgumentNullException(nameof(registry));
+            mTypeIndex = mRegistry.GetOrCreateIndex(TypeDomain)
+                         ?? throw new InvalidOperationException(
+                             $"IdRegistry domain '{TypeDomain}' is occupied by a different primitive.");
+            mInstances = mRegistry.GetOrCreateTypedAllocator(InstanceDomain)
+                         ?? throw new InvalidOperationException(
+                             $"IdRegistry domain '{InstanceDomain}' is occupied by a different primitive.");
+
+            carrierTraits = new Dictionary<int, Dictionary<Type, IDataTrait>>();
+            carriersByType = new Dictionary<int, HashSet<int>>();
+            traitReverseIndex = new Dictionary<Type, HashSet<int>>();
+        }
+
+        /// <summary>注入事件回调，以便在载体生命周期变更后通过外部事件系统广播。</summary>
         public void SetEventCallback(ICarrierEventCallback callback)
         {
-            this.eventCallback = callback;
+            eventCallback = callback;
         }
 
         /// <summary>
@@ -107,13 +131,12 @@ namespace NexusFramework.DataCarrier
         {
             lock (lockObject)
             {
-                typeNameToId.Clear();
-                typeIdToName.Clear();
                 carrierTraits.Clear();
                 carriersByType.Clear();
-                nextUniqueIds.Clear();
                 traitReverseIndex.Clear();
                 indexesByTable.Clear();
+                mTypeIndex.Clear();
+                mInstances.Clear();
                 disposed = true;
             }
         }
@@ -124,225 +147,183 @@ namespace NexusFramework.DataCarrier
 
         public void Init()
         {
-            typeNameToId = new Dictionary<string, ushort>();
-            typeIdToName = new Dictionary<ushort, string>();
-            carrierTraits = new Dictionary<CarrierId, Dictionary<Type, IDataTrait>>();
-            carriersByType = new Dictionary<ushort, HashSet<CarrierId>>();
-            nextUniqueIds = new Dictionary<ushort, ulong>();
-            traitReverseIndex = new Dictionary<Type, HashSet<CarrierId>>();
-            disposed = false; // 供 Architecture 重启复用同一实例：清除关闭标志
+            lock (lockObject)
+            {
+                carrierTraits = new Dictionary<int, Dictionary<Type, IDataTrait>>();
+                carriersByType = new Dictionary<int, HashSet<int>>();
+                traitReverseIndex = new Dictionary<Type, HashSet<int>>();
+                mTypeIndex.Clear();
+                mInstances.Clear();
+                disposed = false;
+            }
+
             // 注意：不重建 indexesByTable——避免清掉先于本 Init 执行的 RegisterIndex（见 D005 §4.4）。
         }
 
         public void Deinit()
         {
-            typeNameToId.Clear();
-            typeIdToName.Clear();
-            carrierTraits.Clear();
-            carriersByType.Clear();
-            nextUniqueIds.Clear();
-            traitReverseIndex.Clear();
-            lock (lockObject) indexesByTable.Clear();
+            lock (lockObject)
+            {
+                carrierTraits.Clear();
+                carriersByType.Clear();
+                traitReverseIndex.Clear();
+                mTypeIndex.Clear();
+                mInstances.Clear();
+                indexesByTable.Clear();
+            }
         }
 
         #region 数据存储
 
-        private readonly byte frameworkId;
-        private Dictionary<string, ushort> typeNameToId;
-        private Dictionary<ushort, string> typeIdToName;
-        private Dictionary<CarrierId, Dictionary<Type, IDataTrait>> carrierTraits;
-        private Dictionary<ushort, HashSet<CarrierId>> carriersByType;
-        private Dictionary<ushort, ulong> nextUniqueIds;
-        private readonly object lockObject = new();
-        private ushort nextTypeId = 1;
+        private readonly IdRegistry mRegistry;
+        private readonly KeyIndex mTypeIndex;
+        private readonly TypedAllocator mInstances;
 
-        // Trait 类型反向索引（优化 FindCarriersWithTrait）
-        private Dictionary<Type, HashSet<CarrierId>> traitReverseIndex;
+        private Dictionary<int, Dictionary<Type, IDataTrait>> carrierTraits;
+        private Dictionary<int, HashSet<int>> carriersByType;
+        private Dictionary<Type, HashSet<int>> traitReverseIndex;
+
+        private readonly object lockObject = new();
 
         // 索引表注册表（表名 → 索引），生命周期托管：DestroyCarrier 派发清理。
-        // 注意：不在 Init 中重建——IOCContainer 的 InitAll 遍历顺序不保证，
-        // 若 CarrierManager.Init（清空）晚于 Model 的注册（RegisterCarrierIndex）会静默吞掉注册。
-        // 故字段在声明处初始化，仅 Deinit/Dispose 清空。见 D005 §4.4。
         private readonly Dictionary<string, ICarrierIndex> indexesByTable = new();
+
         private bool disposed;
-
-        // 事件回调（由外部 Architecture 注入）
         private ICarrierEventCallback eventCallback;
-
-        // Tag 服务（由外部 Architecture 注入，仅供序列化读写 Tag）
         private ITagService tagService;
 
         #endregion
 
         #region 类型注册
 
-        public ushort RegisterType(string typeName)
+        public int RegisterType(string typeName)
         {
             lock (lockObject)
             {
-                if (typeNameToId.TryGetValue(typeName, out var existingId)) return existingId;
+                if (disposed)
+                    return 0;
 
-                var typeId = nextTypeId++;
-                typeNameToId[typeName] = typeId;
-                typeIdToName[typeId] = typeName;
-                carriersByType[typeId] = new HashSet<CarrierId>();
-                nextUniqueIds[typeId] = 1;
-                return typeId;
+                var id = mTypeIndex.Intern(typeName);
+                if (id <= 0)
+                    return 0;
+
+                if (!carriersByType.ContainsKey(id))
+                    carriersByType[id] = new HashSet<int>();
+
+                return id;
             }
         }
 
         public bool IsTypeRegistered(string typeName)
         {
-            lock (lockObject)
-            {
-                return typeNameToId.ContainsKey(typeName);
-            }
+            return mTypeIndex.TryGet(typeName, out _);
         }
 
-        public ushort GetTypeId(string typeName)
+        public int GetTypeId(string typeName)
         {
-            lock (lockObject)
-            {
-                return typeNameToId.GetValueOrDefault(typeName, (ushort)0);
-            }
+            return mTypeIndex.TryGet(typeName, out var id) ? id : 0;
         }
 
-        public string GetTypeName(ushort typeId)
+        public string GetTypeName(int typeId)
         {
-            lock (lockObject)
-            {
-                return typeIdToName.GetValueOrDefault(typeId);
-            }
+            return mTypeIndex.TryGetKey(typeId, out var key) ? key : null;
         }
 
         #endregion
 
         #region 载体管理
 
-        public CarrierId CreateCarrier(ushort typeId)
+        public int CreateCarrier(int typeId)
         {
             if (typeId == 0)
             {
                 Debug.LogError("Cannot create carrier with Invalid type");
-                return CarrierId.Invalid;
+                return 0;
             }
 
             lock (lockObject)
             {
-                if (!typeIdToName.ContainsKey(typeId))
+                if (!mTypeIndex.IsAlive(typeId))
                 {
                     Debug.LogError($"Type ID {typeId} is not registered");
-                    return CarrierId.Invalid;
+                    return 0;
                 }
 
-                // 生成唯一ID并检查是否重复
-                ulong uniqueId;
-                do
+                var id = mInstances.Allocate(typeId);
+                if (id == 0)
                 {
-                    uniqueId = nextUniqueIds[typeId]++;
-                } while (IsUniqueIdUsed(typeId, uniqueId)); // 检查ID是否已被使用
+                    Debug.LogError("Carrier instance allocator exhausted");
+                    return 0;
+                }
 
-                var carrierId = new CarrierId(frameworkId, typeId, uniqueId);
-
+                var carrierId = id;
                 carrierTraits[carrierId] = new Dictionary<Type, IDataTrait>();
-                carriersByType[typeId].Add(carrierId);
 
+                if (!carriersByType.TryGetValue(typeId, out var carriers))
+                {
+                    carriers = new HashSet<int>();
+                    carriersByType[typeId] = carriers;
+                }
+
+                carriers.Add(carrierId);
                 return carrierId;
             }
         }
 
-        public CarrierId CreateCarrier(string typeName) => CreateCarrier(typeNameToId[typeName]);
-
-        // 新增指定ID创建载体的方法
-        public bool CreateCarrier(ushort typeId, ulong uniqueId)
+        public int CreateCarrier(string typeName)
         {
-            // 参数验证
-            if (typeId == 0)
-            {
-                Debug.LogError("Cannot create carrier with Invalid type");
-                return false;
-            }
-
-            if (uniqueId > 0x00000FFFFFFFFFF)
-            {
-                Debug.LogError("UniqueId exceeds 40-bit limit");
-                return false;
-            }
-
-            lock (lockObject)
-            {
-                // 检查类型是否已注册
-                if (!typeIdToName.ContainsKey(typeId))
-                {
-                    Debug.LogError($"Type ID {typeId} is not registered");
-                    return false;
-                }
-
-                // 检查ID是否已被使用
-                var carrierId = new CarrierId(frameworkId, typeId, uniqueId);
-                if (IsCarrierValid(carrierId))
-                {
-                    Debug.LogWarning($"Carrier with ID {carrierId} already exists");
-                    return false;
-                }
-
-                // 更新nextUniqueIds确保不会生成重复ID
-                if (nextUniqueIds[typeId] <= uniqueId) nextUniqueIds[typeId] = uniqueId + 1;
-
-                // 创建载体
-                carrierTraits[carrierId] = new Dictionary<Type, IDataTrait>();
-                carriersByType[typeId].Add(carrierId);
-
-                Debug.Log($"Created carrier: {carrierId}");
-                return true;
-            }
+            var typeId = RegisterType(typeName);
+            return typeId == 0 ? 0 : CreateCarrier(typeId);
         }
 
-        // 辅助方法：检查uniqueId是否已被使用
-        private bool IsUniqueIdUsed(ushort typeId, ulong uniqueId)
+        /// <summary>
+        ///     指定 id 的创建不再支持；实例 id 由分配器统一发放。
+        ///     保留签名以兼容旧调用，<paramref name="uniqueId" /> 被忽略。
+        /// </summary>
+        public bool CreateCarrier(int typeId, ulong uniqueId)
         {
-            var carrierId = new CarrierId(frameworkId, typeId, uniqueId);
-            return carrierTraits.ContainsKey(carrierId);
+            return CreateCarrier(typeId) > 0;
         }
 
-        public bool DestroyCarrier(CarrierId carrierId)
+        public bool DestroyCarrier(int carrierId)
         {
-            if (!carrierId.IsValid || carrierId.FrameworkId != frameworkId)
+            if (carrierId <= 0)
                 return false;
 
             // 索引快照：与移除在同一把锁内取，保证「快照 == 已移除」原子。
             ICarrierIndex[] indexSnapshot;
             lock (lockObject)
             {
-                // 存在性检查必须在锁内：IsCarrierValid 读的 carrierTraits
-                // 正是本方法要改的集合，锁外检查会留下竞态窗口——
-                // 两个线程可同时通过检查，第二个在条目已删后继续执行。
-                if (!carrierTraits.ContainsKey(carrierId))
+                // 一次 TryGetValue 同时完成存在性检查与 Trait 集合获取，
+                // 避免销毁路径上对同一键做两次哈希查找。
+                if (!carrierTraits.TryGetValue(carrierId, out var traits))
                     return false;
 
-                // 清理 Trait 反向索引
-                if (carrierTraits.TryGetValue(carrierId, out var traits))
-                {
-                    foreach (var traitType in traits.Keys)
-                    {
-                        if (traitReverseIndex.TryGetValue(traitType, out var carriersById))
-                            carriersById.Remove(carrierId);
-                    }
-                }
+                foreach (var traitType in traits.Keys)
+                    if (traitReverseIndex.TryGetValue(traitType, out var carriersById))
+                        carriersById.Remove(carrierId);
 
                 carrierTraits.Remove(carrierId);
 
-                // 用 TryGetValue 而非索引器：索引器在键缺失时会插入空集合，
-                // 给该 typeId 留下会被 GetCarrierCount 计入的幽灵条目。
-                if (carriersByType.TryGetValue(carrierId.TypeId, out var carriersOfType))
+                if (mInstances.TryGetType(carrierId, out var typeId)
+                    && carriersByType.TryGetValue(typeId, out var carriersOfType))
                     carriersOfType.Remove(carrierId);
 
-                indexSnapshot = new ICarrierIndex[indexesByTable.Count];
-                indexesByTable.Values.CopyTo(indexSnapshot, 0);
+                mInstances.Free(carrierId);
+
+                // 空索引表是常态，用共享空数组避免每销毁一个载体就分配一次。
+                if (indexesByTable.Count == 0)
+                {
+                    indexSnapshot = Array.Empty<ICarrierIndex>();
+                }
+                else
+                {
+                    indexSnapshot = new ICarrierIndex[indexesByTable.Count];
+                    indexesByTable.Values.CopyTo(indexSnapshot, 0);
+                }
             }
 
             // 锁外派发：接收方（业务索引）在自己的状态下清理，避免锁序嵌套。
-            // 逐条隔离异常——某个业务索引抛异常不得连累其余索引与销毁广播。
             try
             {
                 for (var i = 0; i < indexSnapshot.Length; i++)
@@ -367,27 +348,27 @@ namespace NexusFramework.DataCarrier
             return true;
         }
 
-        public bool IsCarrierValid(CarrierId carrierId)
+        public bool IsCarrierValid(int carrierId)
         {
-            return carrierId.IsValid && carrierId.FrameworkId == frameworkId && carrierTraits.ContainsKey(carrierId);
+            return carrierId > 0 && mInstances.IsAlive(carrierId);
         }
 
-        public ushort GetCarrierTypeId(CarrierId carrierId)
+        public int GetCarrierTypeId(int carrierId)
         {
-            return carrierId.TypeId;
+            return mInstances.TryGetType(carrierId, out var typeId) ? typeId : 0;
         }
 
-        public IEnumerable<CarrierId> GetCarriersByType(ushort typeId)
+        public IEnumerable<int> GetCarriersByType(int typeId)
         {
             lock (lockObject)
             {
                 return carriersByType.TryGetValue(typeId, out var carriers)
                     ? carriers.ToList()
-                    : Enumerable.Empty<CarrierId>();
+                    : Enumerable.Empty<int>();
             }
         }
 
-        public int GetCarrierCount(ushort typeId)
+        public int GetCarrierCount(int typeId)
         {
             lock (lockObject)
             {
@@ -395,7 +376,7 @@ namespace NexusFramework.DataCarrier
             }
         }
 
-        public IEnumerable<CarrierId> GetAllCarriers()
+        public IEnumerable<int> GetAllCarriers()
         {
             lock (lockObject)
             {
@@ -407,21 +388,24 @@ namespace NexusFramework.DataCarrier
 
         #region 特征管理
 
-        public bool AddTrait<T>(CarrierId carrierId, T trait) where T : class, IDataTrait
+        public bool AddTrait<T>(int carrierId, T trait) where T : class, IDataTrait
         {
-            if (!IsCarrierValid(carrierId) || trait == null)
+            if (trait == null)
                 return false;
 
             lock (lockObject)
             {
+                // 存在性检查与写入必须在同一把锁内：锁外判活后并发销毁会抛 KeyNotFound。
+                if (!carrierTraits.TryGetValue(carrierId, out var traits))
+                    return false;
+
                 var traitType = typeof(T);
 
-                carrierTraits[carrierId][traitType] = trait;
+                traits[traitType] = trait;
 
-                // 维护 Trait 反向索引
                 if (!traitReverseIndex.TryGetValue(traitType, out var carriers))
                 {
-                    carriers = new HashSet<CarrierId>();
+                    carriers = new HashSet<int>();
                     traitReverseIndex[traitType] = carriers;
                 }
 
@@ -431,70 +415,65 @@ namespace NexusFramework.DataCarrier
             }
         }
 
-        public bool RemoveTrait<T>(CarrierId carrierId) where T : class, IDataTrait
+        public bool RemoveTrait<T>(int carrierId) where T : class, IDataTrait
         {
-            if (!IsCarrierValid(carrierId))
-                return false;
-
             lock (lockObject)
             {
+                if (!carrierTraits.TryGetValue(carrierId, out var traits))
+                    return false;
+
                 var traitType = typeof(T);
 
-                // 清理 Trait 反向索引
                 if (traitReverseIndex.TryGetValue(traitType, out var carriers))
                     carriers.Remove(carrierId);
 
-                return carrierTraits[carrierId].Remove(traitType);
+                return traits.Remove(traitType);
             }
         }
 
-        public T GetTrait<T>(CarrierId carrierId) where T : class, IDataTrait
+        public T GetTrait<T>(int carrierId) where T : class, IDataTrait
         {
-            if (!IsCarrierValid(carrierId))
-                return null;
-
             lock (lockObject)
             {
+                if (!carrierTraits.TryGetValue(carrierId, out var traits))
+                    return null;
+
                 var traitType = typeof(T);
 
-
-                return carrierTraits[carrierId].TryGetValue(traitType, out var trait)
+                return traits.TryGetValue(traitType, out var trait)
                     ? trait as T
                     : null;
             }
         }
 
-        public bool HasTrait<T>(CarrierId carrierId) where T : class, IDataTrait
+        public bool HasTrait<T>(int carrierId) where T : class, IDataTrait
         {
-            if (!IsCarrierValid(carrierId))
-                return false;
-
             lock (lockObject)
             {
-                var traitType = typeof(T);
-                return carrierTraits[carrierId].ContainsKey(traitType);
+                if (!carrierTraits.TryGetValue(carrierId, out var traits))
+                    return false;
+
+                return traits.ContainsKey(typeof(T));
             }
         }
 
-        public IEnumerable<IDataTrait> GetAllTraits(CarrierId carrierId)
+        public IEnumerable<IDataTrait> GetAllTraits(int carrierId)
         {
-            if (!IsCarrierValid(carrierId))
-                return Enumerable.Empty<IDataTrait>();
-
             lock (lockObject)
             {
-                return carrierTraits[carrierId].Values.ToList();
+                return carrierTraits.TryGetValue(carrierId, out var traits)
+                    ? traits.Values.ToList()
+                    : Enumerable.Empty<IDataTrait>();
             }
         }
 
-        public IEnumerable<Type> GetTraitTypes(CarrierId carrierId)
+        public IEnumerable<Type> GetTraitTypes(int carrierId)
         {
-            if (!IsCarrierValid(carrierId))
-                return Enumerable.Empty<Type>();
-
             lock (lockObject)
             {
-                return carrierTraits[carrierId].Keys.ToList();
+                return carrierTraits.TryGetValue(carrierId, out var traits)
+                    ? traits.Keys.ToList()
+                    : Enumerable.Empty<Type>();
             }
         }
 
@@ -502,33 +481,29 @@ namespace NexusFramework.DataCarrier
 
         #region 查询功能
 
-        public IEnumerable<CarrierId> FindCarriersWithTrait<T>() where T : class, IDataTrait
+        public IEnumerable<int> FindCarriersWithTrait<T>() where T : class, IDataTrait
         {
             lock (lockObject)
             {
                 var traitType = typeof(T);
                 return traitReverseIndex.TryGetValue(traitType, out var carriers)
                     ? carriers.ToList()
-                    : Enumerable.Empty<CarrierId>();
+                    : Enumerable.Empty<int>();
             }
         }
 
-        public IEnumerable<CarrierId> FindCarriersWithTraits(params Type[] traitTypes)
+        public IEnumerable<int> FindCarriersWithTraits(params Type[] traitTypes)
         {
             if (traitTypes == null || traitTypes.Length == 0)
-                return Enumerable.Empty<CarrierId>();
+                return Enumerable.Empty<int>();
 
             lock (lockObject)
             {
-                if (traitTypes.Length == 0)
-                    return Enumerable.Empty<CarrierId>();
-
-                // 从最小反向索引开始交集
-                IEnumerable<CarrierId> result = null;
+                IEnumerable<int> result = null;
                 foreach (var traitType in traitTypes)
                 {
                     if (!traitReverseIndex.TryGetValue(traitType, out var carriers))
-                        return Enumerable.Empty<CarrierId>();
+                        return Enumerable.Empty<int>();
 
                     if (result == null)
                         result = carriers;
@@ -536,7 +511,7 @@ namespace NexusFramework.DataCarrier
                         result = result.Intersect(carriers);
                 }
 
-                return result?.ToList() ?? Enumerable.Empty<CarrierId>();
+                return result?.ToList() ?? Enumerable.Empty<int>();
             }
         }
 
@@ -562,9 +537,7 @@ namespace NexusFramework.DataCarrier
 
                 if (indexesByTable.TryGetValue(index.Name, out var existing))
                 {
-                    if (ReferenceEquals(existing, index)) return; // 同实例重复注册 → no-op
-                    // 重名不同实例 → 拒绝覆盖，保留先者：
-                    // 「改表 = 改数据，不是换表」——变更表内条目，而非注册同名新表替换整表。
+                    if (ReferenceEquals(existing, index)) return;
                     Debug.LogWarning(
                         $"[CarrierManager] RegisterIndex skipped: table name '{index.Name}' already registered by {existing.GetType().Name}");
                     return;
@@ -573,7 +546,6 @@ namespace NexusFramework.DataCarrier
                 indexesByTable[index.Name] = index;
             }
 
-            // 注入 owner，供索引在写入前校验载体有效性（见 ICarrierIndexOwner）。
             if (index is ICarrierIndexOwner owned) owned.SetOwner(this);
         }
 
@@ -612,7 +584,7 @@ namespace NexusFramework.DataCarrier
         {
             lock (lockObject)
             {
-                return indexesByTable.Values.ToArray(); // 快照，非活集合
+                return indexesByTable.Values.ToArray();
             }
         }
 
@@ -620,13 +592,12 @@ namespace NexusFramework.DataCarrier
 
         #region 序列化
 
-        public string SerializeCarrier(CarrierId carrierId)
+        public string SerializeCarrier(int carrierId)
         {
-            if (!IsCarrierValid(carrierId))
+            if (carrierId <= 0)
                 return null;
 
-            // Tag 从 Tag 服务读取，且必须在进入本类锁之前取完——
-            // 服务有自己的锁，嵌套会扩大死锁面。
+            // Tag 从 Tag 服务读取，且必须在进入本类锁之前取完。
             var tags = tagService?.GetTags(carrierId)
                            .OrderBy(key => key, StringComparer.Ordinal)
                            .ToArray()
@@ -634,14 +605,22 @@ namespace NexusFramework.DataCarrier
 
             lock (lockObject)
             {
+                // 存在性检查放进锁内：锁外判活后并发销毁会让下面的索引抛 KeyNotFound。
+                if (!carrierTraits.TryGetValue(carrierId, out var traits))
+                    return null;
+
+                var typeId = GetCarrierTypeId(carrierId);
+                var typeKey = mTypeIndex.TryGetKey(typeId, out var key) ? key : null;
+                if (string.IsNullOrEmpty(typeKey))
+                {
+                    Debug.LogWarning($"[Carrier] Cannot serialize {carrierId}: type key not found.");
+                    return null;
+                }
+
                 var carrierData = new CarrierSerializationData
                 {
-                    carrierId = carrierId.RawValue,
-                    traits = carrierTraits[carrierId].Values.Select(trait => new TraitSerializationData
-                    {
-                        typeName = trait.TraitTypeName,
-                        data = trait.ToJson()
-                    }).ToArray(),
+                    typeKey = typeKey,
+                    traits = traits.Values.Select(SerializeTrait).ToArray(),
                     tags = tags
                 };
 
@@ -649,55 +628,86 @@ namespace NexusFramework.DataCarrier
             }
         }
 
-        public CarrierId DeserializeCarrier(string json)
+        public int DeserializeCarrier(string json)
         {
             try
             {
                 var carrierData = JsonUtility.FromJson<CarrierSerializationData>(json);
-                var carrierId = (CarrierId)carrierData.carrierId;
-
-                if (carrierId.FrameworkId != frameworkId)
+                if (carrierData == null || string.IsNullOrEmpty(carrierData.typeKey))
                 {
-                    Debug.LogWarning(
-                        $"Carrier framework ID mismatch: expected {frameworkId}, got {carrierId.FrameworkId}");
-                    return CarrierId.Invalid;
+                    Debug.LogWarning("[Carrier] Deserialization rejected: missing typeKey.");
+                    return 0;
                 }
 
-                if (IsCarrierValid(carrierId))
+                var typeId = RegisterType(carrierData.typeKey);
+                if (typeId == 0)
                 {
-                    Debug.LogWarning($"Carrier {carrierId} already exists, skipping deserialization");
-                    return carrierId;
+                    Debug.LogWarning($"[Carrier] Unknown typeKey '{carrierData.typeKey}'.");
+                    return 0;
                 }
 
-                // 重新创建载体
+                var carrierId = CreateCarrier(typeId);
+                if (carrierId <= 0)
+                    return 0;
+
                 lock (lockObject)
                 {
-                    carrierTraits[carrierId] = new Dictionary<Type, IDataTrait>();
-                    carriersByType[carrierId.TypeId].Add(carrierId);
-
-                    // 恢复特征数据
-                    foreach (var traitData in carrierData.traits)
+                    // 恢复特征数据。单个 Trait 失败不应拖垮整个载体。
+                    foreach (var traitData in carrierData.traits ?? Array.Empty<TraitSerializationData>())
                     {
-                        var traitType = Type.GetType(traitData.typeName);
-                        if (traitType != null && typeof(IDataTrait).IsAssignableFrom(traitType))
+                        var traitType = ResolveTraitType(traitData);
+                        if (traitType == null || !typeof(IDataTrait).IsAssignableFrom(traitType))
                         {
-                            var trait = (IDataTrait)Activator.CreateInstance(traitType);
-                            trait.FromJson(traitData.data);
-                            carrierTraits[carrierId][traitType] = trait;
-
-                            // 维护 Trait 反向索引
-                            if (!traitReverseIndex.TryGetValue(traitType, out var carriers))
-                            {
-                                carriers = new HashSet<CarrierId>();
-                                traitReverseIndex[traitType] = carriers;
-                            }
-                            carriers.Add(carrierId);
+                            Debug.LogWarning(
+                                $"[Carrier] Unknown trait type '{traitData.typeName}' " +
+                                $"when restoring {carrierId}, skipped");
+                            continue;
                         }
+
+                        var trait = CreateTraitInstance(traitType);
+                        if (trait == null) continue;
+
+                        try
+                        {
+                            trait.FromJson(traitData.data);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogWarning(
+                                $"[Carrier] Failed to restore trait '{traitType.Name}' " +
+                                $"on {carrierId}: {ex.Message}");
+                            continue;
+                        }
+
+                        // 读档：按 key 重建运行时 id，写回 Trait 字段。
+                        if (trait is IIdRefTrait idRefTrait && traitData.idRefs is { Length: > 0 })
+                        {
+                            var refs = ResolveSerializedRefs(traitData.idRefs);
+                            try
+                            {
+                                idRefTrait.ApplyIdRefs(refs);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.LogWarning(
+                                    $"[Carrier] Failed to apply id refs to trait '{traitType.Name}' " +
+                                    $"on {carrierId}: {ex.Message}");
+                            }
+                        }
+
+                        carrierTraits[carrierId][traitType] = trait;
+
+                        if (!traitReverseIndex.TryGetValue(traitType, out var carriers))
+                        {
+                            carriers = new HashSet<int>();
+                            traitReverseIndex[traitType] = carriers;
+                        }
+
+                        carriers.Add(carrierId);
                     }
                 }
 
-                // 锁外恢复 Tag。反序列化路径不广播 TagAdded——
-                // 加载存档不应引发一连串变更事件。
+                // 锁外恢复 Tag。反序列化路径不广播 TagAdded。
                 if (carrierData.tags is { Length: > 0 })
                     tagService?.RestoreTags(carrierId, carrierData.tags);
 
@@ -706,7 +716,142 @@ namespace NexusFramework.DataCarrier
             catch (Exception ex)
             {
                 Debug.LogError($"Failed to deserialize carrier: {ex.Message}");
-                return CarrierId.Invalid;
+                return 0;
+            }
+        }
+
+        /// <summary>
+        ///     序列化单个 Trait。<see cref="IIdRefTrait" /> 会先把运行时 id 转成稳定 key
+        ///     写入 idRefs，并把 id 字段置 0 后再序列化 data；完成后恢复原对象。
+        /// </summary>
+        private TraitSerializationData SerializeTrait(IDataTrait trait)
+        {
+            var data = new TraitSerializationData
+            {
+                typeName = trait.TraitTypeName,
+                assemblyQualifiedName = trait.GetType().AssemblyQualifiedName
+            };
+
+            if (trait is not IIdRefTrait idRefTrait)
+            {
+                data.data = trait.ToJson();
+                return data;
+            }
+
+            var refs = new List<IdRef>();
+            try
+            {
+                idRefTrait.CaptureIdRefs(refs);
+            }
+            catch (Exception ex)
+            {
+                // Capture 失败时退回普通序列化，至少不丢数据。
+                Debug.LogWarning(
+                    $"[Carrier] Trait '{data.typeName}' CaptureIdRefs failed, saved as-is: {ex.Message}");
+                data.data = trait.ToJson();
+                return data;
+            }
+
+            try
+            {
+                data.idRefs = BuildSerializedRefs(refs);
+                data.data = trait.ToJson();
+            }
+            finally
+            {
+                try
+                {
+                    idRefTrait.ApplyIdRefs(refs);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning(
+                        $"[Carrier] Trait '{data.typeName}' ApplyIdRefs failed after serialize: {ex.Message}");
+                }
+            }
+
+            return data;
+        }
+
+        private IdRefSerializationData[] BuildSerializedRefs(List<IdRef> refs)
+        {
+            if (refs.Count == 0)
+                return null;
+
+            var result = new IdRefSerializationData[refs.Count];
+            for (var i = 0; i < refs.Count; i++)
+            {
+                var reference = refs[i];
+                string key = null;
+                if (mRegistry.TryGetIndex(reference.Domain, out var index))
+                    index.TryGetKey(reference.Id, out key);
+
+                if (string.IsNullOrEmpty(key))
+                {
+                    Debug.LogWarning(
+                        $"[Carrier] Cannot resolve id ref '{reference.Domain}' #{reference.Id}; " +
+                        "it will not survive a save/load round trip.");
+                }
+
+                result[i] = new IdRefSerializationData { domain = reference.Domain, key = key };
+            }
+
+            return result;
+        }
+
+        private List<IdRef> ResolveSerializedRefs(IdRefSerializationData[] serialized)
+        {
+            var refs = new List<IdRef>(serialized.Length);
+            foreach (var item in serialized)
+            {
+                var id = 0;
+                var resolved = !string.IsNullOrEmpty(item.domain)
+                               && !string.IsNullOrEmpty(item.key)
+                               && mRegistry.TryGetIndex(item.domain, out var index)
+                               && index.TryGet(item.key, out id);
+
+                if (!resolved)
+                {
+                    Debug.LogWarning(
+                        $"[Carrier] Cannot resolve id ref key '{item.domain}:{item.key}'; " +
+                        "the reference will be restored as 0.");
+                    id = 0;
+                }
+
+                refs.Add(new IdRef { Domain = item.domain, Id = id, Key = item.key });
+            }
+
+            return refs;
+        }
+
+        private static Type ResolveTraitType(TraitSerializationData traitData)
+        {
+            if (!string.IsNullOrEmpty(traitData.assemblyQualifiedName))
+            {
+                var qualified = Type.GetType(traitData.assemblyQualifiedName, false);
+                if (qualified != null) return qualified;
+            }
+
+            return TraitTypeRegistry.Resolve(traitData.typeName);
+        }
+
+        private static IDataTrait CreateTraitInstance(Type traitType)
+        {
+            try
+            {
+                return Activator.CreateInstance(traitType) as IDataTrait;
+            }
+            catch (MissingMethodException)
+            {
+#pragma warning disable 0618
+                return System.Runtime.Serialization.FormatterServices.GetUninitializedObject(traitType) as IDataTrait;
+#pragma warning restore 0618
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning(
+                    $"[Carrier] Failed to instantiate trait type '{traitType.FullName}': {ex.Message}");
+                return null;
             }
         }
 
@@ -783,17 +928,37 @@ namespace NexusFramework.DataCarrier
     [Serializable]
     public class TraitSerializationData
     {
+        /// <summary>短名，兼容旧存档。</summary>
         public string typeName;
+
+        /// <summary>程序集限定名，新存档优先使用；旧存档缺此字段时为 null。</summary>
+        public string assemblyQualifiedName;
+
         public string data;
+
+        /// <summary>
+        ///     Trait 内运行时 id 引用对应的稳定 key。旧存档缺此字段时为 null。
+        /// </summary>
+        public IdRefSerializationData[] idRefs;
+    }
+
+    /// <summary>Trait 内一处 id 引用的存档形态：只写域名与稳定 key。</summary>
+    [Serializable]
+    public class IdRefSerializationData
+    {
+        public string domain;
+        public string key;
     }
 
     [Serializable]
     public class CarrierSerializationData
     {
-        public ulong carrierId;
+        /// <summary>稳定的类型键；读档时据此重建类型 id。</summary>
+        public string typeKey;
+
         public TraitSerializationData[] traits;
 
-        /// <summary>归一化后的 Tag 键，按序写入以保证确定性。旧存档缺此字段时为 null。</summary>
+        /// <summary>归一化后的 Tag 键，按序写入以保证确定性。</summary>
         public string[] tags;
     }
 

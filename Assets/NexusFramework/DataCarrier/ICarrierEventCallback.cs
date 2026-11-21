@@ -6,14 +6,14 @@ namespace NexusFramework.DataCarrier
     /// </summary>
     public interface ICarrierEventCallback
     {
-        void OnTagAdded(CarrierId carrier, string key);
+        void OnTagAdded(int carrier, string key);
 
-        void OnTagRemoved(CarrierId carrier, string key);
+        void OnTagRemoved(int carrier, string key);
 
         /// <summary>
         ///     载体已被销毁且索引已清理。由 CarrierManager.DestroyCarrier 在锁外触发，
         ///     接收方负责清理自身持有的该载体相关状态。
         /// </summary>
-        void OnCarrierDestroyed(CarrierId carrier);
+        void OnCarrierDestroyed(int carrier);
     }
 }

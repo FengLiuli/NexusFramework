@@ -12,7 +12,7 @@ namespace NexusFramework.GAS.Services
         protected override void OnDeinit() { }
 
         /// <summary>获取属性当前值</summary>
-        public float GetCurrentValue(CarrierId carrier, int attrSetCode, int attrCode)
+        public float GetCurrentValue(int carrier, int attrSetCode, int attrCode)
         {
             var entity = GetEntity(carrier);
             if (entity == Entity.Null) return 0f;
@@ -22,7 +22,7 @@ namespace NexusFramework.GAS.Services
         }
 
         /// <summary>获取属性基础值</summary>
-        public float GetBaseValue(CarrierId carrier, int attrSetCode, int attrCode)
+        public float GetBaseValue(int carrier, int attrSetCode, int attrCode)
         {
             var entity = GetEntity(carrier);
             if (entity == Entity.Null) return 0f;
@@ -32,7 +32,7 @@ namespace NexusFramework.GAS.Services
         }
 
         /// <summary>设置属性基础值（触发重算）</summary>
-        public void SetBaseValue(CarrierId carrier, int attrSetCode, int attrCode, float value)
+        public void SetBaseValue(int carrier, int attrSetCode, int attrCode, float value)
         {
             var entity = GetEntity(carrier);
             if (entity == Entity.Null) return;
@@ -60,7 +60,7 @@ namespace NexusFramework.GAS.Services
         }
 
         /// <summary>属性是否存在</summary>
-        public bool HasAttribute(CarrierId carrier, int attrSetCode, int attrCode)
+        public bool HasAttribute(int carrier, int attrSetCode, int attrCode)
         {
             var entity = GetEntity(carrier);
             if (entity == Entity.Null) return false;
@@ -70,7 +70,7 @@ namespace NexusFramework.GAS.Services
         }
 
         /// <summary>设置属性当前值（不触发重算，慎用）</summary>
-        public void SetCurrentValue(CarrierId carrier, int attrSetCode, int attrCode, float value)
+        public void SetCurrentValue(int carrier, int attrSetCode, int attrCode, float value)
         {
             var entity = GetEntity(carrier);
             if (entity == Entity.Null) return;
@@ -95,7 +95,7 @@ namespace NexusFramework.GAS.Services
             }
         }
 
-        private Entity GetEntity(CarrierId carrier)
+        private Entity GetEntity(int carrier)
         {
             return this.GetModel<GASEntityMapModel>().GetGASEntity(carrier);
         }

@@ -7,7 +7,7 @@ namespace NexusFramework
     /// </summary>
     public struct CarrierTagAddedEvent
     {
-        public CarrierId Carrier;
+        public int Carrier;
         public string Key;
     }
 
@@ -16,7 +16,7 @@ namespace NexusFramework
     /// </summary>
     public struct CarrierTagRemovedEvent
     {
-        public CarrierId Carrier;
+        public int Carrier;
         public string Key;
     }
 }

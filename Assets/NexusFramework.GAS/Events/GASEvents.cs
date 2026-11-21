@@ -4,7 +4,7 @@ namespace NexusFramework.GAS.Events
 {
     public struct GASAttributeChangedEvent
     {
-        public CarrierId CarrierId;
+        public int CarrierId;
         public int AttrSetCode;
         public int AttrCode;
         public float OldValue;
@@ -13,26 +13,26 @@ namespace NexusFramework.GAS.Events
 
     public struct GASEffectAppliedEvent
     {
-        public CarrierId Target;
-        public CarrierId Source;
+        public int Target;
+        public int Source;
         public int ConfigId;
     }
 
     public struct GASAbilityActivatedEvent
     {
-        public CarrierId CarrierId;
+        public int CarrierId;
         public int AbilityCode;
         public bool Success;
     }
 
     public struct GASCarrierCreatedEvent
     {
-        public CarrierId CarrierId;
+        public int CarrierId;
         public string TypeName;
     }
 
     public struct GASCarrierDestroyedEvent
     {
-        public CarrierId CarrierId;
+        public int CarrierId;
     }
 }

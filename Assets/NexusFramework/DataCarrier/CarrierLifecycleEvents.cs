@@ -5,6 +5,6 @@
     /// </summary>
     public struct CarrierDestroyedEvent
     {
-        public CarrierId Carrier;
+        public int Carrier;
     }
 }

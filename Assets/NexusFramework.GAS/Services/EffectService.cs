@@ -11,7 +11,7 @@ namespace NexusFramework.GAS.Services
         protected override void OnInit() { }
         protected override void OnDeinit() { }
 
-        public void ApplyEffect(int configId, CarrierId target, CarrierId source)
+        public void ApplyEffect(int configId, int target, int source)
         {
             var model = this.GetModel<GASEntityMapModel>();
             var targetEntity = model.GetGASEntity(target);

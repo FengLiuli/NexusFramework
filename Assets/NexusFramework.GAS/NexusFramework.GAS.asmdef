@@ -2,7 +2,7 @@
     "name": "NexusFramework.GAS",
     "rootNamespace": "NexusFramework.GAS",
     "references": [
-        "GUID:0de6792a94c3d1943a2a75abf64597f1",
+        "NexusFramework",
         "Unity.Entities",
         "Unity.Mathematics",
         "Unity.Collections",

@@ -109,9 +109,9 @@ namespace NexusFramework.GAS.Tests.Services
         [Test]
         public void InvalidCarrier_ReturnsZero()
         {
-            Assert.That(_service.GetCurrentValue(new NexusFramework.DataCarrier.CarrierId(), 1, 1), Is.EqualTo(0f));
-            Assert.That(_service.GetBaseValue(new NexusFramework.DataCarrier.CarrierId(), 1, 1), Is.EqualTo(0f));
-            Assert.That(_service.HasAttribute(new NexusFramework.DataCarrier.CarrierId(), 1, 1), Is.False);
+            Assert.That(_service.GetCurrentValue(0, 1, 1), Is.EqualTo(0f));
+            Assert.That(_service.GetBaseValue(0, 1, 1), Is.EqualTo(0f));
+            Assert.That(_service.HasAttribute(0, 1, 1), Is.False);
         }
 
         private void SetupAttribute(Entity e, int attrSetCode, int attrCode, float baseValue, float currentValue)

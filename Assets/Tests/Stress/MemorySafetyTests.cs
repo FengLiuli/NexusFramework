@@ -45,7 +45,7 @@ namespace NexusFramework.GAS.Tests.Stress
             for (int i = 0; i < 50; i++)
             {
                 var id = _arch.CreateGASCarrier("TestUnit");
-                Assert.That(id.IsValid, Is.True);
+                Assert.That(id > 0, Is.True);
                 Assert.That(model.ContainsCarrier(id), Is.True);
 
                 _arch.DestroyGASCarrier(id);

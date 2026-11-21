@@ -5,6 +5,7 @@ using NexusFramework.DataCarrier;
 using NexusFramework.GAS.Config;
 using NexusFramework.GAS.ECS;
 using NexusFramework.GAS.Models;
+using NexusFramework.Identity;
 using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
@@ -21,18 +22,29 @@ namespace NexusFramework.GAS.Services
     /// </summary>
     public class EcsTagService : AbstractService, ITagService
     {
-        /// <summary>键 ↔ ID 双向映射，供托管 API 使用。</summary>
-        private readonly Dictionary<string, int> mIdByKey = new();
-        private readonly Dictionary<int, string> mKeyById = new();
+        /// <summary>
+        ///     Tag 键 ↔ id 映射。id 来自配置表的 Tag Code，通过 <see cref="KeyIndex.TryRegister" />
+        ///     显式绑定；索引可注入（归架构 <see cref="IdRegistry" />），也可自建。
+        /// </summary>
+        private readonly KeyIndex mTagIndex;
+
+        /// <summary>索引是否由本服务自建；注入索引的生命周期归 IdRegistry。</summary>
+        private readonly bool mOwnsTagIndex;
 
         private ICarrierEventCallback mEventCallback;
 
-        public EcsTagService(IArchitecture architecture)
+        public EcsTagService(IArchitecture architecture) : this(architecture, null)
+        {
+        }
+
+        public EcsTagService(IArchitecture architecture, KeyIndex tagIndex)
         {
             // 本服务经 Architecture.CreateTagService() 创建后直接进 IOC 容器，
             // 不走 RegisterService<T>()，因此必须在此显式补上基类的 Architecture——
             // 否则 AbstractService 的 GetService/GetModel 扩展方法全部 NRE。
             Architecture = architecture;
+            mOwnsTagIndex = tagIndex == null;
+            mTagIndex = tagIndex ?? new KeyIndex("gas.tag", new KeyIndexOptions(parseNamespace: false));
         }
 
         #region 生命周期
@@ -48,16 +60,16 @@ namespace NexusFramework.GAS.Services
 
         protected override void OnDeinit()
         {
-            mIdByKey.Clear();
-            mKeyById.Clear();
+            if (mOwnsTagIndex)
+                mTagIndex.Clear();
         }
 
         public void Dispose()
         {
             // NativeContainer 由 WorldService.OnDeinit 统一回收，
             // 此处只清理托管状态。
-            mIdByKey.Clear();
-            mKeyById.Clear();
+            if (mOwnsTagIndex)
+                mTagIndex.Clear();
             mEventCallback = null;
         }
 
@@ -66,12 +78,12 @@ namespace NexusFramework.GAS.Services
             mEventCallback = callback;
         }
 
-        public bool IsCarrierKnown(CarrierId carrierId)
+        public bool IsCarrierKnown(int carrierId)
         {
             return Architecture.GetCarrierManager().IsCarrierValid(carrierId);
         }
 
-        public void OnCarrierDestroyed(CarrierId carrierId)
+        public void OnCarrierDestroyed(int carrierId)
         {
             // 无托管账本需要清理：Tag 状态始终以 ECS 为准。
             // 保留本方法是契约要求，实现方需对未知 Carrier 静默。
@@ -125,8 +137,8 @@ namespace NexusFramework.GAS.Services
 
         private void BuildIdMaps(TagNode[] nodes)
         {
-            mIdByKey.Clear();
-            mKeyById.Clear();
+            // gas.tag 是 GAS 专属域：重建时整体清空，再按配置重新显式注册。
+            mTagIndex.Clear();
 
             foreach (var node in nodes)
             {
@@ -136,8 +148,21 @@ namespace NexusFramework.GAS.Services
                     continue;
                 }
 
-                mIdByKey[node.Name] = node.Code;
-                mKeyById[node.Code] = node.Name;
+                string normalizedName;
+                try
+                {
+                    normalizedName = TagKey.Normalize(node.Name);
+                }
+                catch (ArgumentException)
+                {
+                    Debug.LogError($"[EcsTagService] 非法标签名: Code={node.Code}, Name='{node.Name}'");
+                    continue;
+                }
+
+                if (!mTagIndex.TryRegister(normalizedName, node.Code, out var error, out var diagnostic))
+                {
+                    Debug.LogError($"[EcsTagService] 标签注册失败 ({error}): {diagnostic}");
+                }
             }
         }
 
@@ -151,15 +176,16 @@ namespace NexusFramework.GAS.Services
 
             foreach (var node in nodes)
             {
-                if (!mKeyById.ContainsKey(node.Code)) continue;
+                // 用注册时的归一化名推导父链，避免配置名中的空格导致匹配失败。
+                if (!mTagIndex.TryGetKey(node.Code, out var normalizedName)) continue;
 
                 var parents = new List<int>();
-                var segments = node.Name.Split('.');
+                var segments = normalizedName.Split('.');
 
                 for (var i = 1; i < segments.Length; i++)
                 {
                     var parentName = string.Join(".", segments, 0, i);
-                    if (mIdByKey.TryGetValue(parentName, out var parentCode))
+                    if (mTagIndex.TryGet(parentName, out var parentCode))
                     {
                         parents.Add(parentCode);
                     }
@@ -232,7 +258,7 @@ namespace NexusFramework.GAS.Services
             var map = new NativeHashMap<int, ComGameplayTag>(nodes.Length, Allocator.Persistent);
             foreach (var node in nodes)
             {
-                if (!mKeyById.ContainsKey(node.Code)) continue;
+                if (!mTagIndex.TryGetKey(node.Code, out _)) continue;
 
                 var parents = ToNativeArray(parentsByCode, node.Code);
                 var children = ToNativeArray(childrenByCode, node.Code);
@@ -268,7 +294,7 @@ namespace NexusFramework.GAS.Services
             if (!TryNormalize(key, out var normalized))
                 return 0;
 
-            if (mIdByKey.TryGetValue(normalized, out var id))
+            if (mTagIndex.TryGet(normalized, out var id))
                 return id;
 
             Debug.LogError($"[EcsTagService] 标签 '{normalized}' 未在配置表中定义");
@@ -278,7 +304,7 @@ namespace NexusFramework.GAS.Services
         public string GetTagKey(int tagId)
         {
             if (tagId <= 0) return null;
-            return mKeyById.TryGetValue(tagId, out var key) ? key : null;
+            return mTagIndex.TryGetKey(tagId, out var key) ? key : null;
         }
 
         public bool TryGetTagId(string key, out int tagId)
@@ -287,7 +313,7 @@ namespace NexusFramework.GAS.Services
             if (!TryNormalize(key, out var normalized))
                 return false;
 
-            return mIdByKey.TryGetValue(normalized, out tagId);
+            return mTagIndex.TryGet(normalized, out tagId);
         }
 
         public bool MatchesOrIsAncestor(int actualTagId, int queryTagId)
@@ -303,7 +329,7 @@ namespace NexusFramework.GAS.Services
 
         #region 写入
 
-        public bool AddTag(CarrierId carrierId, string key)
+        public bool AddTag(int carrierId, string key)
         {
             if (!IsCarrierKnown(carrierId)) return false;
 
@@ -325,7 +351,7 @@ namespace NexusFramework.GAS.Services
             return true;
         }
 
-        public bool RemoveTag(CarrierId carrierId, string key)
+        public bool RemoveTag(int carrierId, string key)
         {
             if (!TryGetTagId(key, out var id)) return false;
 
@@ -347,7 +373,7 @@ namespace NexusFramework.GAS.Services
             return false;
         }
 
-        public int AddTags(CarrierId carrierId, IEnumerable<string> keys)
+        public int AddTags(int carrierId, IEnumerable<string> keys)
         {
             if (keys == null) return 0;
 
@@ -359,7 +385,7 @@ namespace NexusFramework.GAS.Services
             return added.Count;
         }
 
-        public int RemoveTags(CarrierId carrierId, IEnumerable<string> keys)
+        public int RemoveTags(int carrierId, IEnumerable<string> keys)
         {
             if (keys == null) return 0;
 
@@ -371,7 +397,7 @@ namespace NexusFramework.GAS.Services
             return removed;
         }
 
-        public int RestoreTags(CarrierId carrierId, IEnumerable<string> keys)
+        public int RestoreTags(int carrierId, IEnumerable<string> keys)
         {
             if (keys == null) return 0;
 
@@ -409,19 +435,19 @@ namespace NexusFramework.GAS.Services
 
         #region 查询
 
-        public bool HasExactTag(CarrierId carrierId, string key)
+        public bool HasExactTag(int carrierId, string key)
         {
             if (!TryGetTagId(key, out var id)) return false;
             return CarrierHasTag(carrierId, id, exact: true);
         }
 
-        public bool HasTag(CarrierId carrierId, string key)
+        public bool HasTag(int carrierId, string key)
         {
             if (!TryGetTagId(key, out var id)) return false;
             return CarrierHasTag(carrierId, id, exact: false);
         }
 
-        public bool HasAllTags(CarrierId carrierId, IEnumerable<string> keys)
+        public bool HasAllTags(int carrierId, IEnumerable<string> keys)
         {
             if (keys == null) return false;
             foreach (var key in keys)
@@ -430,7 +456,7 @@ namespace NexusFramework.GAS.Services
             return true;
         }
 
-        public bool HasAnyTag(CarrierId carrierId, IEnumerable<string> keys)
+        public bool HasAnyTag(int carrierId, IEnumerable<string> keys)
         {
             if (keys == null) return false;
             foreach (var key in keys)
@@ -439,12 +465,12 @@ namespace NexusFramework.GAS.Services
             return false;
         }
 
-        public bool HasNoneTags(CarrierId carrierId, IEnumerable<string> keys)
+        public bool HasNoneTags(int carrierId, IEnumerable<string> keys)
         {
             return !HasAnyTag(carrierId, keys);
         }
 
-        public IEnumerable<string> GetTags(CarrierId carrierId)
+        public IEnumerable<string> GetTags(int carrierId)
         {
             var result = new List<string>();
             var entity = GetEntity(carrierId);
@@ -466,7 +492,7 @@ namespace NexusFramework.GAS.Services
             return result;
         }
 
-        public int GetTagCount(CarrierId carrierId)
+        public int GetTagCount(int carrierId)
         {
             var entity = GetEntity(carrierId);
             if (entity == Entity.Null) return 0;
@@ -484,9 +510,9 @@ namespace NexusFramework.GAS.Services
         ///     若将来规模增长，应在 ECS 侧建反向索引而非在托管层记账本
         ///     （账本会与绕过本服务的写入路径失同步）。
         /// </summary>
-        public IEnumerable<CarrierId> FindCarriersWithTag(string key)
+        public IEnumerable<int> FindCarriersWithTag(string key)
         {
-            var result = new List<CarrierId>();
+            var result = new List<int>();
             if (!TryGetTagId(key, out _)) return result;
 
             foreach (var carrierId in GetAllCarrierIds())
@@ -496,9 +522,9 @@ namespace NexusFramework.GAS.Services
             return result;
         }
 
-        public IEnumerable<CarrierId> FindCarriersWithTags(TagQuery query)
+        public IEnumerable<int> FindCarriersWithTags(TagQuery query)
         {
-            var result = new List<CarrierId>();
+            var result = new List<int>();
             if (query == null || query.IsEmpty) return result;
 
             foreach (var carrierId in GetAllCarrierIds())
@@ -509,12 +535,12 @@ namespace NexusFramework.GAS.Services
         }
 
         /// <summary>枚举全部已知载体，用于跨类型遍历。</summary>
-        private IEnumerable<CarrierId> GetAllCarrierIds()
+        private IEnumerable<int> GetAllCarrierIds()
         {
             return Architecture.GetCarrierManager().GetAllCarriers();
         }
 
-        private bool MatchesQuery(CarrierId carrierId, TagQuery query)
+        private bool MatchesQuery(int carrierId, TagQuery query)
         {
             foreach (var key in query.All)
                 if (!HasTag(carrierId, key))
@@ -562,7 +588,7 @@ namespace NexusFramework.GAS.Services
 
 
         /// <summary>同时查永久标签与临时标签（GE 授予的）。</summary>
-        private bool CarrierHasTag(CarrierId carrierId, int tagId, bool exact)
+        private bool CarrierHasTag(int carrierId, int tagId, bool exact)
         {
             var entity = GetEntity(carrierId);
             if (entity == Entity.Null) return false;
@@ -582,7 +608,7 @@ namespace NexusFramework.GAS.Services
             return false;
         }
 
-        private Entity GetEntity(CarrierId carrierId)
+        private Entity GetEntity(int carrierId)
         {
             return Architecture.GetModel<GASEntityMapModel>().GetGASEntity(carrierId);
         }

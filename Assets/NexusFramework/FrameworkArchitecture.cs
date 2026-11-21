@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using NexusFramework.DataCarrier;
+using NexusFramework.Identity;
 using UnityEngine;
 
 namespace NexusFramework
@@ -122,6 +123,11 @@ namespace NexusFramework
             return mTagService;
         }
 
+        public IdRegistry GetIdRegistry()
+        {
+            return mIdRegistry;
+        }
+
         #endregion
 
         #region 架构标识和状态
@@ -137,6 +143,7 @@ namespace NexusFramework
 
         private readonly IOCContainer mContainer = new();
         private readonly TypeEventService mTypeEventService = new();
+        private readonly IdRegistry mIdRegistry;
         private readonly CarrierManager mCarrierManager;
         private ITagService mTagService;
         private bool mInitialized;
@@ -149,18 +156,19 @@ namespace NexusFramework
         {
             // 无参构造器生成默认ID（用于特殊情况）
             ArchitectureId = 0;
+            mIdRegistry = new IdRegistry();
             // 必须在构造函数体内创建 CarrierManager，而不能用字段初始化器：
             // 字段初始化器先于构造函数体运行，那时 ArchitectureId 尚未赋值，会被固定为 0。
-            mCarrierManager = new CarrierManager(ArchitectureId);
+            mCarrierManager = new CarrierManager(mIdRegistry);
         }
 
         protected Architecture(byte instanceId)
         {
             // 带参构造器使用指定ID（推荐使用）
             ArchitectureId = instanceId;
-            // 以本架构 ID 作为 CarrierId 的框架位（高8位），隔离不同架构的载体命名空间。
-            // 因此 ArchitectureId 必须全局唯一——由 ArchitectureFactory 的 ID 分配器保证。
-            mCarrierManager = new CarrierManager(ArchitectureId);
+            // 每个架构持有独立的 IdRegistry；Carrier 类型与实例的运行时 id 不跨架构共享。
+            mIdRegistry = new IdRegistry();
+            mCarrierManager = new CarrierManager(mIdRegistry);
         }
 
         #endregion
@@ -183,8 +191,11 @@ namespace NexusFramework
             var bridge = new CarrierManagerEventBridge(this);
             mCarrierManager.SetEventCallback(bridge);
 
-            // Tag 服务：由子类决定实现（GAS 模块覆盖为 ECS 实现）
-            mTagService = CreateTagService() ?? new CarrierTagService(mCarrierManager);
+            // Tag 服务：由子类决定实现（GAS 模块覆盖为 ECS 实现）。
+            // key→slot 索引由架构的 IdRegistry 统一持有；Tag 服务只维护挂载关系。
+            // Tag 键使用点分层规则（TagKey），不套用 IdKey 的冒号命名空间解析。
+            var tagIndex = mIdRegistry.GetOrCreateIndex("core.tag", new KeyIndexOptions(parseNamespace: false));
+            mTagService = CreateTagService(tagIndex) ?? new CarrierTagService(mCarrierManager, tagIndex);
             mCarrierManager.SetTagService(mTagService);
             mTagService.SetEventCallback(bridge);
             mContainer.Register(mTagService);
@@ -247,6 +258,7 @@ namespace NexusFramework
             mTagService?.Dispose();
             mTagService = null;
             mCarrierManager?.Dispose();
+            mIdRegistry.Clear();
 
             State = ArchitectureState.Shutdown;
             mInitialized = false;
@@ -272,10 +284,11 @@ namespace NexusFramework
 
         /// <summary>
         ///     创建 Tag 服务实现。GAS 等模块可覆盖为 ECS 驱动的实现。
+        ///     <paramref name="tagIndex" /> 是架构的 IdRegistry 提供的 Tag key→slot 索引。
         /// </summary>
-        protected virtual ITagService CreateTagService()
+        protected virtual ITagService CreateTagService(KeyIndex tagIndex)
         {
-            return new CarrierTagService(mCarrierManager);
+            return new CarrierTagService(mCarrierManager, tagIndex);
         }
 
         protected virtual void OnPause()
@@ -436,17 +449,17 @@ namespace NexusFramework
             this.architecture = architecture;
         }
 
-        public void OnTagAdded(CarrierId carrier, string key)
+        public void OnTagAdded(int carrier, string key)
         {
             architecture.SendEvent(new CarrierTagAddedEvent { Carrier = carrier, Key = key });
         }
 
-        public void OnTagRemoved(CarrierId carrier, string key)
+        public void OnTagRemoved(int carrier, string key)
         {
             architecture.SendEvent(new CarrierTagRemovedEvent { Carrier = carrier, Key = key });
         }
 
-        public void OnCarrierDestroyed(CarrierId carrier)
+        public void OnCarrierDestroyed(int carrier)
         {
             // 先清理索引再广播：订阅者在回调中反查时不应看到已销毁的载体
             architecture.GetTagService()?.OnCarrierDestroyed(carrier);

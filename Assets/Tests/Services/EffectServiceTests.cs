@@ -49,7 +49,7 @@ namespace NexusFramework.GAS.Tests.Services
         [Test]
         public void ApplyEffect_WithNonExistentCarrier_DoesNotThrow()
         {
-            var invalid = new CarrierId();
+            var invalid = 0;
 
             Assert.DoesNotThrow(() =>
             {

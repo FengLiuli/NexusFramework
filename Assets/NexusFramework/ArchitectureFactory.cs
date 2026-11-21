@@ -12,7 +12,7 @@ namespace NexusFramework
     {
         #region 架构ID分配器
 
-        // 架构ID的宽度（byte）由 CarrierId 的框架位（高8位）决定，不可扩展。
+        // 架构ID为 byte，最多 256 个架构；与运行时实例 id 无关（实例 id 由各架构的 IdRegistry 发放）。
         private const int MaxArchitectureId = 256;
 
         // 每个ID的占用位图。被架构实例占用或作为固定ID显式分配即为 true。
@@ -47,7 +47,7 @@ namespace NexusFramework
         /// <summary>
         ///     分配一个可用的架构ID——从1起寻找首个空闲位（0 保留给常驻框架的固定ID）。
         ///     池耗尽（256个全占用）时返回 false。
-        ///     注意：byte 上限由 CarrierId 框架位决定，因此动态分配的架构数量不得超过256。
+        ///     注意：架构ID为 byte，动态分配的架构数量不得超过256。
         /// </summary>
         public static bool TryAllocateId(out byte id)
         {

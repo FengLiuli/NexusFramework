@@ -33,7 +33,7 @@ namespace NexusFramework.Core.Tests
 
         public int EntryCount => 0;
 
-        public void OnCarrierRemoved(CarrierId carrier)
+        public void OnCarrierRemoved(int carrier)
         {
             RemovedCalled = true;
             throw new InvalidOperationException("boom");
@@ -120,7 +120,7 @@ namespace NexusFramework.Core.Tests
 
             Assert.That(index.TryGet(c, out var v), Is.True);
             Assert.That(v, Is.EqualTo(2));
-            Assert.That(index.TryGetCarrier(1), Is.EqualTo(CarrierId.Invalid), "旧值反向条目应被清除");
+            Assert.That(index.TryGetCarrier(1), Is.EqualTo(0), "旧值反向条目应被清除");
             Assert.That(index.TryGetCarrier(2), Is.EqualTo(c));
         }
 
@@ -130,7 +130,7 @@ namespace NexusFramework.Core.Tests
             var index = new CarrierIndex<int>("test");
             manager.RegisterIndex(index); // 注入 owner → 启用校验
 
-            Assert.That(index.Bind(CarrierId.Invalid, 1), Is.False);
+            Assert.That(index.Bind(0, 1), Is.False);
             Assert.That(index.EntryCount, Is.EqualTo(0));
         }
 
@@ -143,7 +143,7 @@ namespace NexusFramework.Core.Tests
 
             Assert.That(index.Unbind(c), Is.True);
             Assert.That(index.TryGet(c, out _), Is.False);
-            Assert.That(index.TryGetCarrier(5), Is.EqualTo(CarrierId.Invalid));
+            Assert.That(index.TryGetCarrier(5), Is.EqualTo(0));
             Assert.That(index.Unbind(c), Is.False, "重复解绑返回 false");
         }
 
@@ -157,14 +157,14 @@ namespace NexusFramework.Core.Tests
             index.OnCarrierRemoved(c);
 
             Assert.That(index.TryGet(c, out _), Is.False);
-            Assert.That(index.TryGetCarrier(9), Is.EqualTo(CarrierId.Invalid));
+            Assert.That(index.TryGetCarrier(9), Is.EqualTo(0));
         }
 
         [Test]
         public void OnBindingRemoved_FiresOnEvict()
         {
             var index = new CarrierIndex<int>("test");
-            var oldOwner = CarrierId.Invalid;
+            var oldOwner = 0;
             var evictedValue = 0;
             index.OnBindingRemoved += (c, v) => { oldOwner = c; evictedValue = v; };
 
@@ -192,7 +192,7 @@ namespace NexusFramework.Core.Tests
         }
     }
 
-    /// <summary>CarrierIndex&lt;CarrierId&gt; 的引用完整性：被指向的目标销毁时级联解除引用。</summary>
+    /// <summary>CarrierIndex&lt;int&gt; 的引用完整性：被指向的目标销毁时级联解除引用。</summary>
     [TestFixture]
     public class CarrierIndexReferenceIntegrityTests
     {
@@ -217,7 +217,7 @@ namespace NexusFramework.Core.Tests
         [Test]
         public void TargetDestroyed_EvictsSource_SourceSurvives()
         {
-            var index = new CarrierIndex<CarrierId>("unit.target"); // 源 → 目标
+            var index = new CarrierIndex<int>("unit.target"); // 源 → 目标
             manager.RegisterIndex(index);
             var source = manager.CreateCarrier("Test");
             var target = manager.CreateCarrier("Test");
@@ -232,7 +232,7 @@ namespace NexusFramework.Core.Tests
         [Test]
         public void SourceDestroyed_DoesNotAffectTarget()
         {
-            var index = new CarrierIndex<CarrierId>("unit.target");
+            var index = new CarrierIndex<int>("unit.target");
             manager.RegisterIndex(index);
             var source = manager.CreateCarrier("Test");
             var target = manager.CreateCarrier("Test");
@@ -247,7 +247,7 @@ namespace NexusFramework.Core.Tests
         [Test]
         public void SelfReference_RemovedWithoutThrow()
         {
-            var index = new CarrierIndex<CarrierId>("self");
+            var index = new CarrierIndex<int>("self");
             manager.RegisterIndex(index);
             var c = manager.CreateCarrier("Test");
             index.Bind(c, c);
@@ -333,7 +333,7 @@ namespace NexusFramework.Core.Tests
             var g = new CarrierGroupIndex<string>("byFlag");
             manager.RegisterIndex(g);
 
-            Assert.That(g.Add("red", CarrierId.Invalid), Is.False);
+            Assert.That(g.Add("red", 0), Is.False);
         }
 
         [Test]
@@ -354,8 +354,8 @@ namespace NexusFramework.Core.Tests
         [Test]
         public void KeyIsCarrierId_TargetDestroyed_ClearsWholeGroup()
         {
-            // target.lockers: (目标CarrierId) → {源CarrierId}
-            var g = new CarrierGroupIndex<CarrierId>("target.lockers");
+            // target.lockers: (目标int) → {源int}
+            var g = new CarrierGroupIndex<int>("target.lockers");
             manager.RegisterIndex(g);
             var target = manager.CreateCarrier("Test");
             var source1 = manager.CreateCarrier("Test");
@@ -374,7 +374,7 @@ namespace NexusFramework.Core.Tests
         [Test]
         public void KeyIsCarrierId_CarrierBothKeyAndMember_BothCleared()
         {
-            var g = new CarrierGroupIndex<CarrierId>("mixed");
+            var g = new CarrierGroupIndex<int>("mixed");
             manager.RegisterIndex(g);
             var c = manager.CreateCarrier("Test");
             var other = manager.CreateCarrier("Test");

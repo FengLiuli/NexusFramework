@@ -3,6 +3,8 @@ title: 数据包子系统：NexusFramework.Config 库接口设计与实现
 type: feat
 status: active
 date: 2026-08-01
+reviewed: 2026-11-17
+review: docs/progress/2026-11-17-data-pack-plan-review.md
 origin: docs/brainstorms/2026-08-01-data-pack-requirements.md
 ---
 
@@ -509,3 +511,9 @@ Editor: DataPackInitializer.Initialize(packId, targetDirectory)  // R10
 - Related code（生成形状）: `Assets/Demo/Emberheart/GAS/TableClass/`、`Assets/Demo/DataGenerated/Luban/Json/GAS/tbunit.json`
 - Related config: `Assets/Demo/Table/luban.conf`、`Assets/Demo/Table/gen.bat`、`Packages/manifest.json`
 - Related tests: `Assets/Tests/Editor/LubanConfigLoaderGeneratorTests.cs`
+
+## 复核记录
+
+- 2026-11-17 时效性复核：[docs/progress/2026-11-17-data-pack-plan-review.md](../progress/2026-11-17-data-pack-plan-review.md)
+- 结论：核心设计成立，可开工；需先完成 2 项阻塞修订（R-2 Luban 版本钉定、R-4 架构 ID 分配）与 6 项低成本修订（R-1、R-3、R-5、R-6、R-7、R-8）。
+- 修订完成前不勾选 Unit 1。
